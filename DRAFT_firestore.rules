@@ -1,0 +1,83 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation for PerformanceRecord
+    function isValidRecord(data) {
+      return data.keys().hasAll(['id', 'date', 'libido', 'timestamp'])
+        && data.id is string && data.id.size() <= 128
+        && data.date is string && data.date.size() <= 32
+        && data.libido is int && data.libido >= 1 && data.libido <= 5
+        && data.timestamp is int
+        && (!data.keys().contains('hadSex') || data.hadSex is bool)
+        && (!data.keys().contains('masturbated') || data.masturbated is bool)
+        && (!data.keys().contains('usedTadala') || data.usedTadala is bool)
+        && (!data.keys().contains('didClimax') || data.didClimax is bool)
+        && (!data.keys().contains('periodStarts') || data.periodStarts is bool)
+        && (!data.keys().contains('periodEnds') || data.periodEnds is bool)
+        && (!data.keys().contains('periodEnded') || data.periodEnded is bool)
+        && (!data.keys().contains('medsStarts') || data.medsStarts is bool)
+        && (!data.keys().contains('medsEnds') || data.medsEnds is bool)
+        && (!data.keys().contains('notes') || (data.notes is string && data.notes.size() <= 1000));
+    }
+
+    // --- Collections ---
+
+    match /users/{userId} {
+      // Basic user document
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId);
+
+      match /records/{recordId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        
+        allow create: if isOwner(userId) 
+          && isValidId(recordId) 
+          && isValidRecord(incoming())
+          && incoming().id == recordId
+          && incoming().keys().size() <= 14;
+
+        allow update: if isOwner(userId)
+          && isValidRecord(incoming())
+          && incoming().id == existing().id 
+          && incoming().date == existing().date
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'libido', 'hadSex', 'masturbated', 'usedTadala', 'didClimax',
+            'periodStarts', 'periodEnds', 'periodEnded', 'medsStarts', 'medsEnds',
+            'notes', 'timestamp'
+          ]);
+
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

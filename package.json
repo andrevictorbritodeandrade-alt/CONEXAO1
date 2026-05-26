@@ -1,0 +1,29 @@
+{
+  "name": "conexão---gestão-de-performance",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^1.50.1",
+    "@tailwindcss/vite": "^4.2.2",
+    "firebase": "^12.12.1",
+    "lucide-react": "^0.563.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.12.7",
+    "tailwindcss": "^4.2.2"
+  },
+  "devDependencies": {
+    "@firebase/eslint-plugin-security-rules": "^0.0.1",
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

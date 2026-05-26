@@ -1,0 +1,21 @@
+{
+  "short_name": "Conexão",
+  "name": "Conexão",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjEyMCIgZmlsbD0iI2I5MWMxYyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkeT0iLjM1ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMzAwIiBmaWxsPSJ3aGl0ZSI+8J+UpTwvdGV4dD48L3N2Zz4=",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    },
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjQ1IiBmaWxsPSIjYjkxYzFjIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGR5PSIuMzVlbSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMTIiIGZpbGw9IndoaXRlIj7wn5SlPC90ZXh0Pjwvc3ZnPg==",
+      "type": "image/svg+xml",
+      "sizes": "192x192"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#FFF5F5",
+  "background_color": "#FFF5F5",
+  "orientation": "portrait"
+}

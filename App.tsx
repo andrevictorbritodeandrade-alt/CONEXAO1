@@ -4,7 +4,7 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signO
 import { getFirestore, collection, onSnapshot, doc, setDoc, query, orderBy, deleteDoc } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 import { 
-  ResponsiveContainer, AreaChart, Area, Tooltip, XAxis, YAxis, CartesianGrid
+  ResponsiveContainer, AreaChart, Area, Tooltip, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend
 } from 'recharts';
 import { 
   Calendar as CalendarIcon, 
@@ -159,9 +159,13 @@ const LIBIDO_META: { [key: number]: { label: string; value: number; color: strin
 
 // Header Logo (Text only, matched to screenshot)
 const HeaderLogo = () => (
-  <span className="text-2xl font-black italic tracking-tighter text-brand-600 leading-none font-display">
-    CONEXÃO
-  </span>
+  <div className="flex items-center">
+    <h1 className="text-4xl sm:text-5xl md:text-6xl font-black italic tracking-tighter leading-none font-display uppercase flex items-center drop-shadow-sm">
+      <span className="text-red-600">CONE</span>
+      <span className="text-white drop-shadow-[0_2px_2px_rgba(220,38,38,1)]" style={{ WebkitTextStroke: '2px #dc2626' }}>XÃO</span>
+      <span className="ml-2 hover:scale-110 transition-transform cursor-default text-4xl sm:text-5xl md:text-6xl drop-shadow-md origin-bottom-left animate-pulse">🫦</span>
+    </h1>
+  </div>
 );
 
 // Libido Icon Helper to avoid top-level JSX instantiation
@@ -175,6 +179,29 @@ const LibidoIcon = ({ level, size = 32 }: { level: number, size?: number }) => {
   if (meta.icon === 'Flame') return <Flame size={size} fill={level === 5 ? "currentColor" : "none"} />;
   
   return <span className="font-bold">{level}</span>;
+};
+
+const getMarcellyCycleStateForDate = (dateStr: string) => {
+  const dObj = new Date(dateStr + 'T12:00:00');
+  const baseDate = new Date('2026-05-18T12:00:00'); // Standard reference date when period and meds started
+  const diffTime = dObj.getTime() - baseDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  // Modulo 28 to get cycle day between 1 and 28
+  const cycleDay = ((diffDays % 28) + 28) % 28 + 1;
+  
+  return {
+    cycleDay,
+    isPillStart: cycleDay === 1,          // Volta a tomar o remédio (Dia 1)
+    isPillEnd: cycleDay === 21,          // Deixa de tomar o remédio (Dia 21)
+    isPeriodStart: cycleDay === 23 || cycleDay === 24, // Começo da Menstruação (Previsão)
+    isPeakFlow: cycleDay === 25 || cycleDay === 26,    // Maior fluxo (Previsão)
+    isPeriodEnd: cycleDay === 28,        // Fim da Menstruação (Previsão)
+    isFertileStart: cycleDay === 11,     // Início do período fértil (Previsão)
+    isFertileWindow: cycleDay >= 11 && cycleDay <= 16, // Período Fértil (Janela)
+    isPillTaking: cycleDay >= 1 && cycleDay <= 21,    // Tomando o remédio
+    isPillBreak: cycleDay >= 22 && cycleDay <= 28,    // Pausa do remédio
+  };
 };
 
 const App: React.FC = () => {
@@ -254,7 +281,8 @@ const App: React.FC = () => {
         '2026-02-02', '2026-02-12', '2026-02-20',
         '2026-03-10', '2026-03-24', '2026-03-25',
         '2026-04-23', '2026-04-26', '2026-04-27',
-        '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24'
+        '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
+        '2026-05-31', '2026-06-05'
       ];
       let modified = false;
       
@@ -309,6 +337,8 @@ const App: React.FC = () => {
           { id: 'h14', date: '2026-05-17', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-05-17T12:00:00'), periodEnded: false },
           { id: 'h15', date: '2026-05-23', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-05-23T12:00:00'), periodEnded: false },
           { id: 'h16', date: '2026-05-24', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-05-24T12:00:00'), periodEnded: false },
+          { id: 'h17', date: '2026-05-31', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-05-31T12:00:00'), periodEnded: false },
+          { id: 'h18', date: '2026-06-05', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-06-05T12:00:00'), periodEnded: false },
           { 
             id: 'yesterday-' + Date.now(),
             date: yesterdayStr,
@@ -334,18 +364,10 @@ const App: React.FC = () => {
       '2026-02-02', '2026-02-12', '2026-02-20',
       '2026-03-10', '2026-03-24', '2026-03-25',
       '2026-04-23', '2026-04-26', '2026-04-27',
-      '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24'
+      '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
+      '2026-05-31', '2026-06-05'
     ];
     
-    // Cleanup incorrect records added by mistake (keeping this as safety)
-    const incorrectIds = [
-      'req-2026-05-02', 'req-2026-05-03', 'req-2026-05-05', 'req-2026-05-16', 
-      'sat20260502', 'sun20260503', 'sun20260517'
-    ];
-    incorrectIds.forEach(async (id) => {
-      await deleteDoc(doc(db, 'users', currentUser.uid, 'records', id)).catch(() => {});
-    });
-
     forcedHistory.forEach(async (d) => {
       const exists = records.some(r => r.date === d);
       if (!exists) {
@@ -375,21 +397,7 @@ const App: React.FC = () => {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const dbRecords = snapshot.docs.map(doc => doc.data() as Record);
-      const authorizedMaySexDates = ['2026-05-17', '2026-05-23', '2026-05-24'];
-      
-      // Filter out any other records in May that were added somehow
-      const filtered = dbRecords.filter(r => {
-        if (r.date.startsWith('2026-05')) {
-          if (!authorizedMaySexDates.includes(r.date)) {
-            // Proactively delete ghost records found during sync
-            deleteDoc(doc(db, 'users', currentUser.uid, 'records', r.id)).catch(() => {});
-            return false;
-          }
-        }
-        return true;
-      });
-      
-      setRecords(filtered);
+      setRecords(dbRecords);
     }, (error) => {
       handleFirestoreError(error, 'list', `/users/${currentUser.uid}/records`);
     });
@@ -523,6 +531,8 @@ const App: React.FC = () => {
   };
 
   // --- Logic: Partner Libido & Cycle Tracking (Selene) ---
+
+
   const getPartnerCycleInfo = () => {
     if (records.length === 0) return null;
 
@@ -536,7 +546,8 @@ const App: React.FC = () => {
     const startDate = lastPeriodStart ? new Date(lastPeriodStart.date + 'T12:00:00') : new Date('2026-05-18T12:00:00'); // Fallback to provided date
     const today = new Date(todayStr + 'T12:00:00');
     const diffTime = today.getTime() - startDate.getTime();
-    const cycleDay = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const cycleDayRaw = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const cycleDay = ((cycleDayRaw - 1) % 28 + 28) % 28 + 1;
 
     // Phase determination for Cis-Female Cycle (adjusted for pill users)
     let phase: 'Menstrual' | 'Folicular' | 'Ovulatória' | 'Lútea' = 'Folicular';
@@ -599,8 +610,10 @@ const App: React.FC = () => {
   };
 
   const partnerInfo = getPartnerCycleInfo();
-
-  // Main Render
+  
+  const handlePrint = () => {
+     window.print();
+  };
 
   // Main Render
   if (error) {
@@ -620,8 +633,15 @@ const App: React.FC = () => {
            )}
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all font-black text-[10px] uppercase tracking-widest shadow-sm print:hidden"
+          >
+             <Activity size={14} className="text-brand-600" />
+             PDF / Imprimir
+          </button>
           {currentUser ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-50 border border-brand-100">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-50 border border-brand-100 print:hidden">
                <Cloud size={14} className="text-brand-600" />
                <span className="text-[10px] font-black text-brand-600 uppercase tracking-widest">Sincronizado</span>
             </div>
@@ -743,13 +763,72 @@ const Dashboard = ({
   ).size;
   const sexPercentage = daysPassed > 0 ? ((uniqueDaysWithSex / daysPassed) * 100).toFixed(1) : '0.0';
   const avgLibido = records.length > 0 ? records.reduce((acc: any, r: any) => acc + r.libido, 0) / records.length : 0;
-  const sortedHistory = [...records].sort((a,b) => b.timestamp - a.timestamp).slice(0, 10);
+  
+  // History filtered to show ONLY days with sex, sorted by date descending, showing all for the current year
+  const sexHistory = [...records]
+    .filter((r: any) => r.hadSex)
+    .sort((a,b) => b.timestamp - a.timestamp);
+
+  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const currentMonthName = capitalize(currentDate.toLocaleString('pt-BR', { month: 'long' }));
+  const prevMonthDate = new Date(year, month - 1, 1);
+  const prevMonthName = capitalize(prevMonthDate.toLocaleString('pt-BR', { month: 'long' }));
+
+  const monthlyComparisonData = Array.from({ length: 31 }, (_, idx) => {
+    const dayNum = idx + 1;
+    
+    // Find record for current month on this day
+    const curRecord = records.find((r: any) => {
+      const parts = r.date.split('-');
+      if (parts.length !== 3) return false;
+      const rYear = parseInt(parts[0], 10);
+      const rMonth = parseInt(parts[1], 10) - 1; // 0-indexed
+      const rDay = parseInt(parts[2], 10);
+      return rYear === year && rMonth === month && rDay === dayNum;
+    });
+
+    // Find record for previous month on this day
+    const prevRecord = records.find((r: any) => {
+      const parts = r.date.split('-');
+      if (parts.length !== 3) return false;
+      const rYear = parseInt(parts[0], 10);
+      const rMonth = parseInt(parts[1], 10) - 1; // 0-indexed
+      const rDay = parseInt(parts[2], 10);
+      return rYear === prevMonthDate.getFullYear() && rMonth === prevMonthDate.getMonth() && rDay === dayNum;
+    });
+
+    return {
+      day: dayNum,
+      libidoAtual: curRecord ? curRecord.libido : null,
+      libidoAnterior: prevRecord ? prevRecord.libido : null
+    };
+  });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 animate-in fade-in slide-in-from-bottom-4 duration-700 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 animate-in fade-in slide-in-from-bottom-4 duration-700 items-start print:block">
       
-      {/* SIDEBAR: Performance & Cycle */}
-      <div className="lg:col-span-4 space-y-8">
+      {/* Print Only Header */}
+      <div className="hidden print:block mb-8 border-b-2 border-slate-900 pb-6 text-center">
+        <h1 className="text-4xl font-black font-display italic tracking-tight mb-2">RELATÓRIO DE PERFORMANCE CONEXÃO</h1>
+        <p className="text-sm font-bold uppercase tracking-widest text-slate-500">Documento Gerado em {new Date().toLocaleDateString('pt-BR')} • {year}</p>
+        <div className="mt-8 grid grid-cols-3 gap-8">
+           <div className="p-4 bg-slate-50 rounded-2xl">
+              <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">Total de Transas</span>
+              <span className="text-3xl font-black text-brand-600">{uniqueDaysWithSex}</span>
+           </div>
+           <div className="p-4 bg-slate-50 rounded-2xl">
+              <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">Aproveitamento</span>
+              <span className="text-3xl font-black text-slate-900">{sexPercentage}%</span>
+           </div>
+           <div className="p-4 bg-slate-50 rounded-2xl">
+              <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">Libido Média</span>
+              <span className="text-3xl font-black text-slate-900">{avgLibido.toFixed(1)}</span>
+           </div>
+        </div>
+      </div>
+
+      {/* Sidebar: Performance & Cycle - Hidden in print or adjusted */}
+      <div className="lg:col-span-4 space-y-8 print:hidden">
         <section className="relative overflow-hidden bg-brand-600 rounded-[40px] p-8 text-white shadow-2xl shadow-brand-900/20">
            <div className="absolute -top-24 -right-24 w-64 h-64 bg-brand-400 rounded-full blur-3xl opacity-20 animate-pulse"></div>
            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-brand-900 rounded-full blur-3xl opacity-30"></div>
@@ -777,6 +856,13 @@ const Dashboard = ({
                  </p>
                  <div className="w-full bg-brand-900/40 rounded-full h-3 p-0.5 border border-white/10">
                     <div className="bg-gradient-to-r from-brand-300 to-white h-full rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all duration-1000" style={{ width: `${Math.min(Number(sexPercentage), 100)}%` }}></div>
+                 </div>
+                 
+                 <div className="mt-4 px-4 py-3 bg-brand-700/40 rounded-2xl border border-brand-500/20">
+                    <span className="text-[9px] font-black uppercase text-brand-200 block mb-0.5">Contato Recente</span>
+                    <p className="text-xs font-black text-white italic">
+                      Última relação em 5 de Junho (sexta-feira) — primeiro dia do mês de Junho.
+                    </p>
                  </div>
               </div>
               <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/10">
@@ -895,26 +981,174 @@ const Dashboard = ({
              ))}
            </div>
            <div className="grid grid-cols-7 gap-y-4 gap-x-2">
-             {Array.from({length: firstDay}).map((_, i) => <div key={`empty-${i}`} />)}
-             {Array.from({length: daysInMonth}).map((_, i) => {
-               const day = i + 1;
-               const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-               const rec = records.find((r: any) => r.date === dStr);
-               const isToday = dStr === todayStr;
-               const hasRecord = !!rec;
-               return (
-                 <div key={day} onClick={() => handleOpenCheckin(dStr)} className={`aspect-square flex flex-col items-center justify-center rounded-2xl relative transition-all cursor-pointer hover:scale-110 active:scale-90 ${hasRecord ? rec?.hadSex ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30' : rec?.masturbated ? 'bg-orange-500 text-white shadow-md' : 'bg-white border-2 border-slate-200 text-slate-400' : isToday ? 'bg-slate-900 text-white shadow-xl ring-4 ring-slate-100' : 'bg-slate-50 text-slate-400 hover:bg-brand-50 hover:text-brand-600'}`}>
-                    <span className="text-xs font-black font-display">{day}</span>
-                    {rec?.hadSex && <div className="absolute -top-1 -right-1 bg-white p-1 rounded-full text-brand-600 shadow-sm border border-brand-100 animate-pulse"><Flame size={12} fill="currentColor" /></div>}
-                    {!rec?.hadSex && rec?.masturbated && <div className="absolute -top-1 -right-1 bg-white p-1 rounded-full text-orange-500 shadow-sm border border-orange-100"><UserIcon size={12} /></div>}
-                    {!rec?.hadSex && !rec?.masturbated && hasRecord && <div className="absolute -top-1 -right-1 bg-white p-1 rounded-full text-slate-400 shadow-sm border border-slate-100 font-black flex items-center justify-center"><Ban size={10} /></div>}
-                    {rec?.periodStarts && <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-brand-500 rounded-full border-2 border-white shadow-sm"></div>}
-                    {(rec?.periodEnds || rec?.periodEnded) && <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white shadow-sm"></div>}
-                 </div>
-               );
-             })}
-           </div>
-        </section>
+              {Array.from({length: firstDay}).map((_, i) => <div key={`empty-${i}`} />)}
+              {Array.from({length: daysInMonth}).map((_, i) => {
+                const day = i + 1;
+                const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const rec = records.find((r: any) => r.date === dStr);
+                const isToday = dStr === todayStr;
+                const hasRecord = !!rec;
+                const cycle = getMarcellyCycleStateForDate(dStr);
+
+                // Build gorgeous color overlays and backgrounds for cycle statuses
+                let cycleStyles = '';
+                if (!hasRecord && !isToday) {
+                  if (cycle.isPillStart) {
+                    cycleStyles = 'border-2 border-blue-500 bg-blue-50/80 text-blue-900 ring-2 ring-blue-200 shadow-sm';
+                  } else if (cycle.isPillEnd) {
+                    cycleStyles = 'border-2 border-amber-400 border-dashed bg-amber-50/80 text-amber-900 shadow-sm';
+                  } else if (cycle.isPeriodStart) {
+                    cycleStyles = 'border-2 border-orange-400 bg-orange-50/80 text-orange-950 font-semibold shadow-sm';
+                  } else if (cycle.isPeakFlow) {
+                    cycleStyles = 'border-2 border-red-600 bg-red-50/90 text-red-950 font-bold shadow-md';
+                  } else if (cycle.isPeriodEnd) {
+                    cycleStyles = 'border-2 border-green-500 bg-green-50/80 text-green-950 font-semibold shadow-sm';
+                  } else if (cycle.isFertileWindow) {
+                    cycleStyles = 'border-2 border-teal-400 bg-teal-50/80 text-teal-950 font-bold shadow-sm';
+                  }
+                }
+
+                // Collect list of microdots for this specific calendar cell
+                const indicators = [];
+                if (cycle.isPillStart) {
+                  indicators.push(<span key="i-pstart" className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-sm block shrink-0 animate-pulse" title="Volta a Tomar o Remédio" />);
+                }
+                if (cycle.isPillEnd) {
+                  indicators.push(<span key="i-pend" className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-sm block shrink-0" title="Último Comprimido da Cartela" />);
+                }
+                if (cycle.isPeriodStart) {
+                  indicators.push(<span key="i-mstart" className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-sm block shrink-0" title="Início da Menstruação (Previsão)" />);
+                }
+                if (cycle.isPeakFlow) {
+                  indicators.push(<span key="i-mpeak" className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse block shrink-0" title="Maior Fluxo Menstrual (Previsão)" />);
+                }
+                if (cycle.isPeriodEnd) {
+                  indicators.push(<span key="i-mend" className="w-1.5 h-1.5 rounded-full bg-green-500 block shrink-0" title="Fim da Menstruação (Previsão)" />);
+                }
+                if (cycle.isFertileWindow) {
+                  indicators.push(<span key="i-fert" className="w-1.5 h-1.5 rounded-full bg-teal-400 block shrink-0 animate-pulse" title="Período Fértil / Alta Libido (Previsão)" />);
+                }
+
+                // Base style determination
+                let baseStyle = '';
+                if (hasRecord) {
+                  baseStyle = rec?.hadSex
+                    ? 'bg-brand-600 text-white shadow-xl shadow-brand-600/35 ring-2 ring-brand-400 font-bold'
+                    : rec?.masturbated
+                    ? 'bg-orange-500 text-white shadow-md font-bold'
+                    : 'bg-white border-2 border-slate-200 text-slate-400';
+                } else if (isToday) {
+                  baseStyle = 'bg-slate-900 text-white shadow-2xl ring-4 ring-slate-100 ring-offset-1 font-extrabold';
+                } else {
+                  baseStyle = cycleStyles || 'bg-slate-50 text-slate-500 hover:bg-brand-50 hover:text-brand-600';
+                }
+
+                return (
+                  <div 
+                    key={day} 
+                    onClick={() => handleOpenCheckin(dStr)} 
+                    className={`aspect-square flex flex-col items-center justify-between p-1 rounded-2xl relative transition-all cursor-pointer hover:scale-110 active:scale-95 group ${baseStyle}`}
+                  >
+                     {/* Row for indicators / top markers */}
+                     <div className="w-full flex justify-end h-3 pr-0.5 mt-0.5">
+                       {rec?.hadSex && (
+                         <div className="bg-white p-0.5 rounded-full text-brand-600 shadow-[0_2px_5px_rgba(0,0,0,0.1)] border border-brand-100">
+                           <Flame size={10} fill="currentColor" />
+                         </div>
+                       )}
+                       {!rec?.hadSex && rec?.masturbated && (
+                         <div className="bg-white p-0.5 rounded-full text-orange-500 shadow-sm border border-orange-100">
+                           <UserIcon size={10} />
+                         </div>
+                       )}
+                       {!rec?.hadSex && !rec?.masturbated && hasRecord && (
+                         <div className="bg-white p-1 rounded-full text-slate-400 shadow-sm border border-slate-100 flex items-center justify-center">
+                           <Ban size={8} />
+                         </div>
+                       )}
+                     </div>
+
+                     {/* The calendar day number itself */}
+                     <span className={`text-xs font-black font-display leading-none -mt-1 ${rec?.hadSex || isToday ? 'text-white' : ''}`}>
+                       {day}
+                     </span>
+
+                     {/* The Row of Cycle Microdots at the bottom of the cell */}
+                     <div className="w-full flex justify-center gap-0.5 min-h-[6px] mb-1">
+                       {indicators}
+                     </div>
+
+                     {/* Bottom historical manual cycle markers */}
+                     {rec?.periodStarts && (
+                       <div className="absolute top-1/2 left-1.5 -translate-y-1/2 w-1.5 h-1.5 bg-brand-500 rounded-full border border-white shadow-sm" title="Desceu!"></div>
+                     )}
+                     {(rec?.periodEnds || rec?.periodEnded) && (
+                       <div className="absolute top-1/2 right-1.5 -translate-y-1/2 w-1.5 h-1.5 bg-yellow-400 rounded-full border border-white shadow-sm" title="Limpo!"></div>
+                     )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Legenda do Ciclo de Marcelly */}
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <div className="flex items-center gap-2 mb-4">
+                <CalendarHeart size={16} className="text-brand-500" />
+                <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 font-display">Legendas e Previsões do Ciclo (Marcelly)</h4>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                
+                <div className="p-3 rounded-2xl bg-blue-50/60 border border-blue-200 flex items-start gap-2.5 font-sans">
+                  <div className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-blue-500 mt-1 shadow-[0_0_5px_rgba(59,130,246,0.5)] animate-pulse"></div>
+                  <div>
+                    <h5 className="text-[10px] font-black text-blue-950 uppercase tracking-wide">Volta a Tomar o Remédio</h5>
+                    <p className="text-[9px] font-semibold text-slate-500 leading-normal mt-0.5">Dia 1 do ciclo Selene. Início do novo blister de comprimidos.</p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-teal-50/60 border border-teal-200 flex items-start gap-2.5 font-sans">
+                  <div className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-teal-400 mt-1 shadow-[0_0_5px_rgba(45,212,191,0.5)] animate-pulse font-sans"></div>
+                  <div>
+                    <h5 className="text-[10px] font-black text-teal-950 uppercase tracking-wide">Período Fértil / Libido ⬆</h5>
+                    <p className="text-[9px] font-semibold text-slate-500 leading-normal mt-0.5">Dias 11 a 16. Janela fértil e pico previsível de libido.</p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-amber-50/60 border border-amber-200 flex items-start gap-2.5 font-sans">
+                  <div className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-amber-400 mt-1 shadow-[0_0_5px_rgba(251,191,36,0.5)]"></div>
+                  <div>
+                    <h5 className="text-[10px] font-black text-amber-950 uppercase tracking-wide">Deixa de Tomar / Fim</h5>
+                    <p className="text-[9px] font-semibold text-slate-500 leading-normal mt-0.5">Dia 21 de comprimidos. Pausa de 7 dias se inicia no dia seguinte.</p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-orange-50/60 border border-orange-200 flex items-start gap-2.5 font-sans">
+                  <div className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-orange-500 mt-1 shadow-[0_0_5px_rgba(249,115,22,0.5)]"></div>
+                  <div>
+                    <h5 className="text-[10px] font-black text-orange-950 uppercase tracking-wide">Início da Menstruação</h5>
+                    <p className="text-[9px] font-semibold text-slate-500 leading-normal mt-0.5">Dias 23-24 (Pausa dia 2-3). Previsão aproximada de sangramento.</p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-red-50/60 border border-red-200 flex items-start gap-2.5 font-sans">
+                  <div className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-red-600 mt-1 shadow-[0_0_5px_rgba(220,38,38,0.5)] animate-pulse"></div>
+                  <div>
+                    <h5 className="text-[10px] font-black text-red-950 uppercase tracking-wide">Maior Fluxo (Pico)</h5>
+                    <p className="text-[9px] font-semibold text-slate-500 leading-normal mt-0.5">Dias 25-26. Dias previstos de maior intensidade menstrual e cólicas.</p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-green-50/60 border border-green-200 flex items-start gap-2.5 font-sans font-display">
+                  <div className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-green-500 mt-1 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
+                  <div>
+                    <h5 className="text-[10px] font-black text-green-950 uppercase tracking-wide">Fim da Menstruação</h5>
+                    <p className="text-[9px] font-semibold text-slate-500 leading-normal mt-0.5">Dia 28 da pausa. Fim do período, repouso do útero finalizado.</p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+         </section>
 
         <section className="neo-card p-6 overflow-hidden">
            <div className="flex items-center justify-between mb-8">
@@ -952,41 +1186,86 @@ const Dashboard = ({
            </div>
         </section>
 
-        <section className="space-y-6">
+        <section className="neo-card p-6 overflow-hidden">
+           <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                 <div className="p-2 bg-brand-50 rounded-xl"><Activity size={18} className="text-brand-600" /></div>
+                 <div>
+                   <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 font-display">Comparativo Mensal de Libido</h3>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{currentMonthName} vs. {prevMonthName}</p>
+                 </div>
+              </div>
+           </div>
+           
+           <div className="h-64 w-full -ml-6">
+             <ResponsiveContainer width="100%" height="100%">
+               <LineChart data={monthlyComparisonData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} dy={10} label={{ value: 'Dia do Mês', position: 'insideBottom', offset: -5, fill: '#94a3b8', fontSize: 10, fontWeight: 900 }} />
+                 <YAxis domain={[1, 5]} hide={true} />
+                 <Tooltip cursor={{ stroke: '#fca5a5', strokeWidth: 1, strokeDasharray: '5 5' }} content={({ active, payload }) => {
+                     if (active && payload && payload.length) {
+                       const day = payload[0].payload.day;
+                       return (
+                         <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-800 animate-in zoom-in-95 duration-200 text-xs space-y-1.5">
+                           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dia {day} do Mês</p>
+                           {payload.map((entry, index) => {
+                             if (entry.value === null || entry.value === undefined) return null;
+                             const val = entry.value as number;
+                             const label = LIBIDO_META[val]?.label || val;
+                             return (
+                               <div key={index} className="flex items-center gap-2">
+                                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                                 <span className="font-bold">{entry.name}:</span>
+                                 <span className="font-black italic font-display">{label} ({val})</span>
+                               </div>
+                             );
+                           })}
+                         </div>
+                       );
+                     }
+                     return null;
+                   }} />
+                 <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', tracking: '0.1em', paddingLeft: '24px' }} />
+                 <Line type="monotone" dataKey="libidoAtual" stroke="#e53e3e" strokeWidth={4} activeDot={{ r: 6 }} name={`${currentMonthName} (${year})`} connectNulls dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} />
+                 <Line type="monotone" dataKey="libidoAnterior" stroke="#94a3b8" strokeWidth={2.5} strokeDasharray="4 4" activeDot={{ r: 4 }} name={`${prevMonthName} (Anterior)`} connectNulls dot={{ r: 2, strokeWidth: 1, fill: '#fff' }} />
+               </LineChart>
+             </ResponsiveContainer>
+           </div>
+        </section>
+
+        <section className="space-y-6 print:mt-10">
           <div className="flex justify-between items-end px-2">
             <div className="space-y-1">
-               <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] font-display">Histórico</h3>
-               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Registros Recentes</p>
+               <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] font-display">Histórico de Performance</h3>
+               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Apenas dias com relação</p>
             </div>
             <div className="flex items-baseline gap-1">
-               <span className="text-2xl font-black text-brand-600 font-display italic">{uniqueDaysWithSex}</span>
-               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">transas</span>
+               <span className="text-2xl font-black text-brand-600 font-display italic">{sexHistory.length}</span>
+               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">no total</span>
             </div>
           </div>
-          <div className="space-y-4">
-             {sortedHistory.map((rec: any) => (
-                <div key={rec.id} className="neo-card p-5 flex items-center gap-5 group hover:border-brand-200 transition-all">
-                   <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg transition-transform group-hover:scale-110" style={{ backgroundColor: LIBIDO_META[rec.libido].color, boxShadow: `0 8px 20px ${LIBIDO_META[rec.libido].color}40` }}>
-                      <LibidoIcon level={rec.libido} size={28} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 print:grid-cols-1">
+             {sexHistory.map((rec: any) => (
+                <div key={rec.id} className="neo-card p-5 flex items-center gap-5 group hover:border-brand-200 transition-all print:shadow-none print:border-slate-100">
+                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg transition-transform group-hover:scale-110 print:shadow-sm" style={{ backgroundColor: LIBIDO_META[rec.libido].color }}>
+                      <Flame size={24} fill="currentColor" />
                    </div>
                    <div className="flex-1">
                       <div className="flex justify-between items-center mb-1">
-                         <h4 className="text-lg font-black text-slate-900 font-display italic">{new Date(rec.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}.</h4>
-                         <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{LIBIDO_META[rec.libido].label}</span>
+                         <h4 className="text-lg font-black text-slate-900 font-display italic">{new Date(rec.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</h4>
+                         <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest print:text-slate-400">{LIBIDO_META[rec.libido].label}</span>
                       </div>
                       <div className="flex flex-wrap gap-2 mt-2">
-                         {!rec.hadSex && !rec.masturbated && !rec.usedTadala && <span className="px-3 py-1 bg-slate-100 text-slate-400 rounded-xl text-[10px] font-black flex items-center gap-1.5 border border-slate-200"><Ban size={10} /> NADA</span>}
                          {rec.hadSex && rec.didClimax === false && <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black flex items-center gap-1.5 border border-rose-100 italic"><AlertCircle size={10} /> SEM CLÍMAX</span>}
                          {rec.hadSex && rec.didClimax === true && <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black flex items-center gap-1.5 border border-emerald-100"><Check size={10} strokeWidth={3} /> FINALIZOU</span>}
                          {rec.hadSex && <span className="px-3 py-1 bg-brand-50 text-brand-600 rounded-xl text-[10px] font-black flex items-center gap-1.5 border border-brand-100"><Heart size={10} fill="currentColor" /> TRANSA</span>}
-                         {rec.masturbated && <span className="px-3 py-1 bg-orange-50 text-orange-600 rounded-xl text-[10px] font-black flex items-center gap-1.5 border border-orange-100"><UserIcon size={10} /> SOLO</span>}
                          {rec.usedTadala && <span className="px-3 py-1 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black flex items-center gap-1.5 border border-slate-200"><Pill size={10} /> TADALA</span>}
-                         {(rec.periodEnds || rec.periodEnded) && <span className="px-3 py-1 bg-yellow-50 text-yellow-700 rounded-xl text-[10px] font-black flex items-center gap-1.5 border border-yellow-200"><Sparkles size={10} /> ACABOU</span>}
                       </div>
                    </div>
                 </div>
              ))}
-             {sortedHistory.length === 0 && <div className="neo-card py-12 text-center text-slate-400 font-bold text-sm opacity-50 italic">Nenhum registro relevante ainda.</div>}
+             {sexHistory.length === 0 && <div className="neo-card py-12 text-center text-slate-400 font-bold text-sm opacity-50 italic">Nenhum registro de transa ainda.</div>}
           </div>
         </section>
       </div>

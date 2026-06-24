@@ -282,12 +282,14 @@ const App: React.FC = () => {
         '2026-03-10', '2026-03-24', '2026-03-25',
         '2026-04-23', '2026-04-26', '2026-04-27',
         '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
-        '2026-05-31', '2026-06-05'
+        '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-21'
       ];
       let modified = false;
       
       forcedHistory.forEach(d => {
-        if (!loadedRecords.some(r => r.date === d)) {
+        const existingIdx = loadedRecords.findIndex(r => r.date === d);
+        
+        if (existingIdx === -1) {
           const isApril23 = d === '2026-04-23';
           const isMay18 = d === '2026-05-18';
           const isMay22 = d === '2026-05-22';
@@ -306,6 +308,11 @@ const App: React.FC = () => {
             timestamp: new Date(d + 'T12:00:00').getTime(),
             periodEnded: isApril23 || isMay22
           });
+          modified = true;
+        } else if (d === '2026-06-07' || d === '2026-06-21') {
+          // Force hadSex to true specifically
+          loadedRecords[existingIdx].hadSex = true;
+          loadedRecords[existingIdx].libido = 5;
           modified = true;
         }
       });
@@ -339,6 +346,8 @@ const App: React.FC = () => {
           { id: 'h16', date: '2026-05-24', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-05-24T12:00:00'), periodEnded: false },
           { id: 'h17', date: '2026-05-31', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-05-31T12:00:00'), periodEnded: false },
           { id: 'h18', date: '2026-06-05', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-06-05T12:00:00'), periodEnded: false },
+          { id: 'h19', date: '2026-06-07', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-06-07T12:00:00'), periodEnded: false },
+          { id: 'h20', date: '2026-06-21', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-06-21T12:00:00'), periodEnded: false },
           { 
             id: 'yesterday-' + Date.now(),
             date: yesterdayStr,
@@ -365,12 +374,21 @@ const App: React.FC = () => {
       '2026-03-10', '2026-03-24', '2026-03-25',
       '2026-04-23', '2026-04-26', '2026-04-27',
       '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
-      '2026-05-31', '2026-06-05'
+      '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-21'
     ];
     
     forcedHistory.forEach(async (d) => {
-      const exists = records.some(r => r.date === d);
-      if (!exists) {
+      // Clean up duplicates if needed
+      if (d === '2026-06-07' || d === '2026-06-21') {
+         const existing = records.filter(r => r.date === d);
+         for (const ex of existing) {
+           if (ex.id !== 'forced-' + d) {
+             await deleteDoc(doc(db, 'users', currentUser.uid, 'records', ex.id));
+           }
+         }
+      }
+      const exists = records.some(r => r.date === d && r.id === 'forced-' + d);
+      if (!exists || d === '2026-06-07' || d === '2026-06-21') {
         const id = 'forced-' + d;
         const isApril23 = d === '2026-04-23';
         const isMay18 = d === '2026-05-18';
@@ -432,6 +450,45 @@ const App: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [records, currentUser]);
+
+  // Background Auto-Fix for 06-07 and 06-21 (One-time repair when records load)
+  useEffect(() => {
+    if (currentUser && records.length > 0) {
+      const fixDates = ['2026-06-07', '2026-06-21'];
+      fixDates.forEach(fixDate => {
+        const specificRecords = records.filter(r => r.date === fixDate);
+        
+        // If missing completely, add it
+        if (specificRecords.length === 0) {
+          setDoc(doc(db, 'users', currentUser.uid, 'records', 'forced-' + fixDate), {
+            id: 'forced-' + fixDate,
+            date: fixDate,
+            hadSex: true,
+            libido: 5,
+            masturbated: false,
+            usedTadala: false,
+            didClimax: true,
+            periodStarts: false,
+            medsStarts: false,
+            periodEnds: false,
+            timestamp: new Date(fixDate + 'T12:00:00').getTime(),
+            periodEnded: false
+          }, { merge: true });
+        } else {
+          // If it exists but hadSex is false, forceful correction!
+          specificRecords.forEach(r => {
+            if (!r.hadSex) {
+              setDoc(doc(db, 'users', currentUser.uid, 'records', r.id), {
+                hadSex: true,
+                didClimax: true,
+                libido: Math.max(r.libido || 5, 5)
+              }, { merge: true });
+            }
+          });
+        }
+      });
+    }
+  }, [currentUser, records.length]);
 
   const handleSignIn = async () => {
     try {

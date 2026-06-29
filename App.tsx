@@ -183,7 +183,7 @@ const LibidoIcon = ({ level, size = 32 }: { level: number, size?: number }) => {
 
 const getMarcellyCycleStateForDate = (dateStr: string) => {
   const dObj = new Date(dateStr + 'T12:00:00');
-  const baseDate = new Date('2026-05-18T12:00:00'); // Standard reference date when period and meds started
+  const baseDate = new Date('2026-06-18T12:00:00'); // Standard reference date when period and meds started
   const diffTime = dObj.getTime() - baseDate.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   
@@ -282,7 +282,7 @@ const App: React.FC = () => {
         '2026-03-10', '2026-03-24', '2026-03-25',
         '2026-04-23', '2026-04-26', '2026-04-27',
         '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
-        '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-21'
+        '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26'
       ];
       let modified = false;
       
@@ -293,23 +293,24 @@ const App: React.FC = () => {
           const isApril23 = d === '2026-04-23';
           const isMay18 = d === '2026-05-18';
           const isMay22 = d === '2026-05-22';
+          const isJune18 = d === '2026-06-18';
 
           loadedRecords.push({
             id: 'forced-' + d,
             date: d,
-            hadSex: !isMay18 && !isMay22, // Assuming sex only on other forced dates
+            hadSex: !isMay18 && !isMay22 && !isJune18, // Assuming sex only on other forced dates
             libido: 5,
             masturbated: false,
             usedTadala: false,
             didClimax: true,
-            periodStarts: isMay18,
-            medsStarts: isMay18, // common practice to start Selene on Day 1
+            periodStarts: isMay18 || isJune18,
+            medsStarts: isMay18 || isJune18, // common practice to start Selene on Day 1
             periodEnds: isApril23 || isMay22,
             timestamp: new Date(d + 'T12:00:00').getTime(),
             periodEnded: isApril23 || isMay22
           });
           modified = true;
-        } else if (d === '2026-06-07' || d === '2026-06-21') {
+        } else if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26') {
           // Force hadSex to true specifically
           loadedRecords[existingIdx].hadSex = true;
           loadedRecords[existingIdx].libido = 5;
@@ -348,6 +349,7 @@ const App: React.FC = () => {
           { id: 'h18', date: '2026-06-05', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-06-05T12:00:00'), periodEnded: false },
           { id: 'h19', date: '2026-06-07', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-06-07T12:00:00'), periodEnded: false },
           { id: 'h20', date: '2026-06-21', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-06-21T12:00:00'), periodEnded: false },
+          { id: 'h21', date: '2026-06-26', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-06-26T12:00:00'), periodEnded: false },
           { 
             id: 'yesterday-' + Date.now(),
             date: yesterdayStr,
@@ -374,12 +376,12 @@ const App: React.FC = () => {
       '2026-03-10', '2026-03-24', '2026-03-25',
       '2026-04-23', '2026-04-26', '2026-04-27',
       '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
-      '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-21'
+      '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26'
     ];
     
     forcedHistory.forEach(async (d) => {
       // Clean up duplicates if needed
-      if (d === '2026-06-07' || d === '2026-06-21') {
+      if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26') {
          const existing = records.filter(r => r.date === d);
          for (const ex of existing) {
            if (ex.id !== 'forced-' + d) {
@@ -388,22 +390,23 @@ const App: React.FC = () => {
          }
       }
       const exists = records.some(r => r.date === d && r.id === 'forced-' + d);
-      if (!exists || d === '2026-06-07' || d === '2026-06-21') {
+      if (!exists || d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-06-18') {
         const id = 'forced-' + d;
         const isApril23 = d === '2026-04-23';
         const isMay18 = d === '2026-05-18';
         const isMay22 = d === '2026-05-22';
+        const isJune18 = d === '2026-06-18';
 
         await setDoc(doc(db, 'users', currentUser.uid, 'records', id), {
           id,
           date: d,
-          hadSex: !isMay18 && !isMay22,
+          hadSex: !isMay18 && !isMay22 && !isJune18,
           libido: 5, // Peak performance
           masturbated: false,
           usedTadala: false,
           didClimax: true,
-          periodStarts: isMay18,
-          medsStarts: isMay18,
+          periodStarts: isMay18 || isJune18,
+          medsStarts: isMay18 || isJune18,
           periodEnds: isApril23 || isMay22,
           timestamp: new Date(d + 'T12:00:00').getTime(),
           periodEnded: isApril23 || isMay22
@@ -451,38 +454,48 @@ const App: React.FC = () => {
     }
   }, [records, currentUser]);
 
-  // Background Auto-Fix for 06-07 and 06-21 (One-time repair when records load)
+  // Background Auto-Fix for 06-07, 06-18, 06-21, and 06-26 (One-time repair when records load)
   useEffect(() => {
     if (currentUser && records.length > 0) {
-      const fixDates = ['2026-06-07', '2026-06-21'];
+      const fixDates = ['2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26'];
       fixDates.forEach(fixDate => {
         const specificRecords = records.filter(r => r.date === fixDate);
+        const isJune18 = fixDate === '2026-06-18';
         
         // If missing completely, add it
         if (specificRecords.length === 0) {
           setDoc(doc(db, 'users', currentUser.uid, 'records', 'forced-' + fixDate), {
             id: 'forced-' + fixDate,
             date: fixDate,
-            hadSex: true,
+            hadSex: !isJune18,
             libido: 5,
             masturbated: false,
             usedTadala: false,
-            didClimax: true,
-            periodStarts: false,
-            medsStarts: false,
+            didClimax: !isJune18,
+            periodStarts: isJune18,
+            medsStarts: isJune18,
             periodEnds: false,
             timestamp: new Date(fixDate + 'T12:00:00').getTime(),
             periodEnded: false
           }, { merge: true });
         } else {
-          // If it exists but hadSex is false, forceful correction!
+          // If it exists but has wrong flags, forceful correction!
           specificRecords.forEach(r => {
-            if (!r.hadSex) {
-              setDoc(doc(db, 'users', currentUser.uid, 'records', r.id), {
-                hadSex: true,
-                didClimax: true,
-                libido: Math.max(r.libido || 5, 5)
-              }, { merge: true });
+            if (isJune18) {
+              if (!r.periodStarts || !r.medsStarts) {
+                setDoc(doc(db, 'users', currentUser.uid, 'records', r.id), {
+                  periodStarts: true,
+                  medsStarts: true
+                }, { merge: true });
+              }
+            } else {
+              if (!r.hadSex) {
+                setDoc(doc(db, 'users', currentUser.uid, 'records', r.id), {
+                  hadSex: true,
+                  didClimax: true,
+                  libido: Math.max(r.libido || 5, 5)
+                }, { merge: true });
+              }
             }
           });
         }
@@ -600,7 +613,7 @@ const App: React.FC = () => {
     const lastPeriodEnd = sortedRecords.find(r => r.periodEnds || r.periodEnded);
     const lastMedsStart = sortedRecords.find(r => r.medsStarts);
 
-    const startDate = lastPeriodStart ? new Date(lastPeriodStart.date + 'T12:00:00') : new Date('2026-05-18T12:00:00'); // Fallback to provided date
+    const startDate = lastPeriodStart ? new Date(lastPeriodStart.date + 'T12:00:00') : new Date('2026-06-18T12:00:00'); // Fallback to provided date
     const today = new Date(todayStr + 'T12:00:00');
     const diffTime = today.getTime() - startDate.getTime();
     const cycleDayRaw = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;

@@ -35,7 +35,12 @@ import {
   Smartphone,
   LogOut,
   LogIn,
-  AlertCircle
+  AlertCircle,
+  Thermometer,
+  Sun,
+  Snowflake,
+  Wind,
+  CloudSun
 } from 'lucide-react';
 
 // --- Firebase Initialization ---
@@ -158,14 +163,27 @@ const LIBIDO_META: { [key: number]: { label: string; value: number; color: strin
 
 // --- Components ---
 
-// Header Logo (Text only, matched to screenshot)
+// Header Logo (Professional Gradient & Icon Mark)
 const HeaderLogo = () => (
-  <div className="flex items-center">
-    <h1 className="text-4xl sm:text-5xl md:text-6xl font-black italic tracking-tighter leading-none font-display uppercase flex items-center drop-shadow-sm">
-      <span className="text-red-600">CONE</span>
-      <span className="text-white drop-shadow-[0_2px_2px_rgba(220,38,38,1)]" style={{ WebkitTextStroke: '2px #dc2626' }}>XÃO</span>
-      <span className="ml-2 hover:scale-110 transition-transform cursor-default text-4xl sm:text-5xl md:text-6xl drop-shadow-md origin-bottom-left animate-pulse">🫦</span>
-    </h1>
+  <div className="flex items-center gap-3 group cursor-pointer">
+    <div className="relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-rose-500 via-red-600 to-rose-700 text-white shadow-lg shadow-rose-950/40 border border-rose-400/30 group-hover:scale-105 transition-all duration-300 flex-shrink-0">
+      <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-white fill-white/20" />
+      <span className="absolute -bottom-1 -right-1 text-xs select-none">🫦</span>
+    </div>
+    <div className="flex flex-col">
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl sm:text-3xl font-black font-display uppercase tracking-tight py-1 leading-snug flex items-center overflow-visible">
+          <span className="bg-gradient-to-r from-white via-slate-100 to-slate-200 bg-clip-text text-transparent">CONE</span>
+          <span className="bg-gradient-to-r from-rose-500 to-red-500 bg-clip-text text-transparent pr-1">XÃO</span>
+        </h1>
+        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-sm backdrop-blur-sm hidden sm:inline-block">
+          PERFORMANCE
+        </span>
+      </div>
+      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+        Gestão & Métricas
+      </span>
+    </div>
   </div>
 );
 
@@ -284,7 +302,7 @@ const App: React.FC = () => {
         '2026-04-23', '2026-04-26', '2026-04-27',
         '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
         '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26',
-        '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19'
+        '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30'
       ];
       let modified = false;
       
@@ -312,7 +330,7 @@ const App: React.FC = () => {
             periodEnded: isApril23 || isMay22
           });
           modified = true;
-        } else if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19') {
+        } else if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30') {
           // Force hadSex to true specifically
           loadedRecords[existingIdx].hadSex = true;
           loadedRecords[existingIdx].libido = 5;
@@ -357,6 +375,9 @@ const App: React.FC = () => {
           { id: 'h23', date: '2026-07-05', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-07-05T12:00:00'), periodEnded: false },
           { id: 'h24', date: '2026-07-18', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-07-18T12:00:00'), periodEnded: false },
           { id: 'h25', date: '2026-07-19', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-07-19T12:00:00'), periodEnded: false },
+          { id: 'h26', date: '2026-07-24', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-07-24T12:00:00'), periodEnded: false },
+          { id: 'h27', date: '2026-07-26', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-07-26T12:00:00'), periodEnded: false },
+          { id: 'h28', date: '2026-07-30', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-07-30T12:00:00'), periodEnded: false },
           { 
             id: 'yesterday-' + Date.now(),
             date: yesterdayStr,
@@ -384,12 +405,12 @@ const App: React.FC = () => {
       '2026-04-23', '2026-04-26', '2026-04-27',
       '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
       '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26',
-      '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19'
+      '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30'
     ];
     
     forcedHistory.forEach(async (d) => {
       // Clean up duplicates if needed
-      if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19') {
+      if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30') {
          const existing = records.filter(r => r.date === d);
          for (const ex of existing) {
            if (ex.id !== 'forced-' + d) {
@@ -398,7 +419,7 @@ const App: React.FC = () => {
          }
       }
       const exists = records.some(r => r.date === d && r.id === 'forced-' + d);
-      if (!exists || d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-06-18' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19') {
+      if (!exists || d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-06-18' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30') {
         const id = 'forced-' + d;
         const isApril23 = d === '2026-04-23';
         const isMay18 = d === '2026-05-18';
@@ -699,43 +720,44 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 selection:bg-rose-100 selection:text-rose-900 flex flex-col relative overflow-x-hidden pt-4 pb-12">
-      {/* Ambient Glowing Blobs */}
-      <div id="ambient-glow-1" className="absolute top-0 right-0 w-[600px] h-[600px] bg-rose-200/20 rounded-full blur-[140px] pointer-events-none -z-10" />
-      <div id="ambient-glow-2" className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-brand-100/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 selection:bg-rose-100 selection:text-rose-900 flex flex-col relative overflow-x-hidden pb-12">
+      {/* Top Accent Gradient Background Fading down into slate-50 */}
+      <div id="top-header-gradient" className="w-full bg-gradient-to-b from-slate-950 via-slate-900 via-rose-950/20 to-transparent pb-8 pt-4 px-3 sm:px-6 transition-all duration-500 relative">
+        <div id="ambient-glow-header" className="absolute top-0 right-1/4 w-[500px] h-32 bg-rose-600/15 rounded-full blur-[90px] pointer-events-none -z-10" />
 
-      {/* HEADER */}
-      <header id="app-header" className="sticky top-4 mx-4 md:mx-10 z-30 bg-white/70 backdrop-blur-md px-6 py-4 flex justify-between items-center border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-3xl transition-all duration-300 print:hidden">
-        <div className="flex items-center gap-3">
-           <HeaderLogo />
-           {saveStatus === 'saved' && (
-             <span id="save-badge" className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-emerald-100/60 animate-in fade-in zoom-in duration-300 shadow-sm">
-               <Check size={10} strokeWidth={3} /> SALVO
-             </span>
-           )}
-        </div>
-        <div className="flex items-center gap-3">
-          <button 
-            id="print-btn"
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/90 hover:bg-white border border-slate-100 text-slate-700 hover:text-slate-900 hover:shadow-md hover:border-slate-200 transition-all font-black text-[10px] uppercase tracking-wider shadow-[0_2px_10px_rgba(0,0,0,0.02)] active:scale-95 print:hidden"
-          >
-             <Activity size={14} className="text-brand-600 animate-pulse" />
-             PDF / Imprimir
-          </button>
-          {currentUser ? (
-            <div id="sync-status" className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-50/80 border border-rose-100 text-brand-600 print:hidden shadow-sm">
-               <Cloud size={14} className="text-brand-600" />
-               <span className="text-[10px] font-black uppercase tracking-wider">Sincronizado</span>
-            </div>
-          ) : (
-            <div id="local-status" className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-100 text-slate-400">
-               <Smartphone size={14} className="text-slate-400" />
-               <span className="text-[10px] font-black uppercase tracking-wider">Local</span>
-            </div>
-          )}
-        </div>
-      </header>
+        {/* HEADER */}
+        <header id="app-header" className="max-w-7xl mx-auto z-30 bg-slate-900/85 backdrop-blur-xl px-5 sm:px-7 py-3.5 flex flex-wrap sm:flex-nowrap justify-between items-center border border-slate-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.35)] rounded-[28px] transition-all duration-300 print:hidden text-white gap-3">
+          <div className="flex items-center gap-3">
+             <HeaderLogo />
+             {saveStatus === 'saved' && (
+               <span id="save-badge" className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-emerald-500/40 animate-in fade-in zoom-in duration-300 shadow-sm backdrop-blur-sm">
+                 <Check size={10} strokeWidth={3} /> SALVO
+               </span>
+             )}
+          </div>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <button 
+              id="print-btn"
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 hover:text-white hover:border-slate-600 hover:shadow-lg transition-all font-black text-[10px] uppercase tracking-wider shadow-sm active:scale-95 print:hidden"
+            >
+               <Activity size={14} className="text-rose-400 animate-pulse" />
+               PDF / Imprimir
+            </button>
+            {currentUser ? (
+              <div id="sync-status" className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-500/20 border border-rose-500/30 text-rose-300 print:hidden shadow-sm backdrop-blur-sm">
+                 <Cloud size={14} className="text-rose-400" />
+                 <span className="text-[10px] font-black uppercase tracking-wider">Sincronizado</span>
+              </div>
+            ) : (
+              <div id="local-status" className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-800/90 border border-slate-700/80 text-slate-400">
+                 <Smartphone size={14} className="text-slate-400" />
+                 <span className="text-[10px] font-black uppercase tracking-wider">Local</span>
+              </div>
+            )}
+          </div>
+        </header>
+      </div>
 
       <main className="max-w-7xl mx-auto p-4 lg:p-10 pt-8 flex-1 w-full">
         {authLoading ? (
@@ -893,6 +915,54 @@ const Dashboard = ({
     ? new Date(lastRelation.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', weekday: 'long' })
     : '19 de Julho (domingo)';
 
+  // --- Seasons Analysis (Hemisfério Sul) ---
+  const getSeasonInfo = (dateStr: string) => {
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return { id: 'outono', name: 'Outono' };
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    const md = m * 100 + d;
+
+    if (md >= 1221 || md <= 320) {
+      return { id: 'verao', name: 'Verão' };
+    } else if (md >= 321 && md <= 620) {
+      return { id: 'outono', name: 'Outono' };
+    } else if (md >= 621 && md <= 920) {
+      return { id: 'inverno', name: 'Inverno' };
+    } else {
+      return { id: 'primavera', name: 'Primavera' };
+    }
+  };
+
+  const seasonsData = [
+    { id: 'outono', name: 'Outono', period: '21 Mar - 20 Jun', tempType: 'Clima Ameno / Suave', bg: 'from-orange-50/90 via-amber-50/50 to-orange-100/20', border: 'border-orange-200/80', textAccent: 'text-orange-600', iconBg: 'bg-orange-100 text-orange-600 border border-orange-200', count: 0, libidoSum: 0 },
+    { id: 'inverno', name: 'Inverno', period: '21 Jun - 20 Set', tempType: 'Clima Frio / Edredom', bg: 'from-blue-50/90 via-sky-50/50 to-indigo-100/20', border: 'border-blue-200/80', textAccent: 'text-blue-600', iconBg: 'bg-blue-100 text-blue-600 border border-blue-200', count: 0, libidoSum: 0 },
+    { id: 'primavera', name: 'Primavera', period: '21 Set - 20 Dez', tempType: 'Clima Ameno / Florido', bg: 'from-emerald-50/90 via-teal-50/50 to-emerald-100/20', border: 'border-emerald-200/80', textAccent: 'text-emerald-600', iconBg: 'bg-emerald-100 text-emerald-600 border border-emerald-200', count: 0, libidoSum: 0 },
+    { id: 'verao', name: 'Verão', period: '21 Dez - 20 Mar', tempType: 'Clima Quente / Abafado', bg: 'from-rose-50/90 via-red-50/50 to-rose-100/20', border: 'border-rose-200/80', textAccent: 'text-rose-600', iconBg: 'bg-rose-100 text-rose-600 border border-rose-200', count: 0, libidoSum: 0 },
+  ];
+
+  records.forEach((r: any) => {
+    if (r.hadSex) {
+      const s = getSeasonInfo(r.date);
+      const target = seasonsData.find(item => item.id === s.id);
+      if (target) {
+        target.count += 1;
+        target.libidoSum += (r.libido || 3);
+      }
+    }
+  });
+
+  const totalSexRecords = seasonsData.reduce((acc, curr) => acc + curr.count, 0);
+
+  const sortedSeasons = [...seasonsData].sort((a, b) => b.count - a.count);
+  const mostActiveSeason = sortedSeasons[0];
+  const leastActiveSeason = sortedSeasons[sortedSeasons.length - 1];
+
+  const mildColdCount = (seasonsData.find(s => s.id === 'outono')?.count || 0) + (seasonsData.find(s => s.id === 'inverno')?.count || 0) + (seasonsData.find(s => s.id === 'primavera')?.count || 0);
+  const hotCount = seasonsData.find(s => s.id === 'verao')?.count || 0;
+  const mildColdPct = totalSexRecords > 0 ? Math.round((mildColdCount / totalSexRecords) * 100) : 0;
+  const hotPct = totalSexRecords > 0 ? Math.round((hotCount / totalSexRecords) * 100) : 0;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 animate-in fade-in slide-in-from-bottom-4 duration-700 items-start print:block">
       
@@ -938,8 +1008,8 @@ const Dashboard = ({
                   </div>
               </div>
 
-              <div className="flex items-baseline gap-2 mb-2">
-                 <h2 className="text-8xl font-black font-display tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 italic leading-none">{uniqueDaysWithSex}</h2>
+              <div className="flex items-baseline gap-2 mb-2 overflow-visible">
+                 <h2 className="text-8xl font-black font-display tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 italic leading-none pr-4 py-1.5 inline-block">{uniqueDaysWithSex}</h2>
                  <span className="text-lg font-bold text-slate-400 italic">dias transando</span>
               </div>
 
@@ -1279,89 +1349,174 @@ const Dashboard = ({
            </div>
         </section>
 
-        {/* CHART SECTION: OSCILAÇÃO */}
-        <section id="libido-osc-card" className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-[0_12px_40px_rgba(0,0,0,0.015)] overflow-hidden transition-all duration-300 hover:shadow-md">
-           <div className="flex items-center justify-between mb-8">
+        {/* SEASONAL ANALYSIS SECTION */}
+        <section id="seasons-analysis-card" className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-[0_12px_40px_rgba(0,0,0,0.015)] space-y-8 transition-all duration-300 hover:shadow-md">
+           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                 <div className="p-2.5 bg-rose-50 rounded-2xl border border-rose-100/50"><Activity size={18} className="text-brand-600" /></div>
-                 <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 font-display italic">Oscilação de Desejo</h3>
-              </div>
-           </div>
-           <div className="h-56 w-full -ml-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={[...records].sort((a,b) => a.timestamp - b.timestamp).slice(-15)} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorLibido" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#e53e3e" stopOpacity={0.25}/><stop offset="95%" stopColor="#e53e3e" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
-                <XAxis dataKey="date" tickFormatter={(val) => new Date(val + 'T12:00:00').getDate().toString()} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} dy={10} />
-                <YAxis domain={[0, 6]} hide={true} />
-                <Tooltip cursor={{stroke: '#fca5a5', strokeWidth: 1.5, strokeDasharray: '4 4'}} content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload as Record;
-                      return (
-                        <div className="bg-slate-950/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-xl border border-slate-800 animate-in zoom-in-95 duration-200">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{new Date(data.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</p>
-                          <p className="text-xs font-black italic font-display">Libido: <span className="text-rose-400">{LIBIDO_META[data.libido]?.label || data.libido}</span></p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }} />
-                <Area type="monotone" dataKey="libido" stroke="#e53e3e" strokeWidth={4} fillOpacity={1} fill="url(#colorLibido)" animationDuration={2000} />
-              </AreaChart>
-            </ResponsiveContainer>
-           </div>
-        </section>
-
-        {/* CHART SECTION: COMPARATIVO */}
-        <section id="libido-comp-card" className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-[0_12px_40px_rgba(0,0,0,0.015)] overflow-hidden transition-all duration-300 hover:shadow-md">
-           <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                 <div className="p-2.5 bg-rose-50 rounded-2xl border border-rose-100/50"><Activity size={18} className="text-brand-600" /></div>
+                 <div className="p-2.5 bg-sky-50 rounded-2xl border border-sky-100/60 text-sky-600">
+                    <Thermometer size={18} />
+                 </div>
                  <div>
-                   <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 font-display italic">Comparativo Mensal de Libido</h3>
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{currentMonthName} vs. {prevMonthName}</p>
+                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900 font-display italic">
+                       Análise por Estações do Ano
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                       Influência do Clima & Temperatura na Frequência
+                    </p>
                  </div>
               </div>
+              
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-50 border border-slate-150 self-start sm:self-auto">
+                 <Sparkles size={12} className="text-amber-500" />
+                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                    Hemisfério Sul • Brasil
+                 </span>
+              </div>
            </div>
-           
-           <div className="h-64 w-full -ml-6">
-             <ResponsiveContainer width="100%" height="100%">
-               <LineChart data={monthlyComparisonData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
-                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
-                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} dy={10} label={{ value: 'Dia do Mês', position: 'insideBottom', offset: -5, fill: '#94a3b8', fontSize: 9, fontWeight: 900, letterSpacing: '0.1em' }} />
-                 <YAxis domain={[1, 5]} hide={true} />
-                 <Tooltip cursor={{ stroke: '#fca5a5', strokeWidth: 1, strokeDasharray: '5 5' }} content={({ active, payload }) => {
-                     if (active && payload && payload.length) {
-                       const day = payload[0].payload.day;
-                       return (
-                         <div className="bg-slate-950/95 backdrop-blur-md text-white p-4 rounded-2xl shadow-xl border border-slate-800 animate-in zoom-in-95 duration-200 text-xs space-y-1.5">
-                           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dia {day} do Mês</p>
-                           {payload.map((entry, index) => {
-                             if (entry.value === null || entry.value === undefined) return null;
-                             const val = entry.value as number;
-                             const label = LIBIDO_META[val]?.label || val;
-                             return (
-                               <div key={index} className="flex items-center gap-2">
-                                 <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: entry.color }} />
-                                 <span className="font-bold text-slate-300">{entry.name}:</span>
-                                 <span className="font-black italic font-display text-white">{label} ({val})</span>
-                               </div>
-                             );
-                           })}
-                         </div>
-                       );
-                     }
-                     return null;
-                   }} />
-                 <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', tracking: '0.1em', paddingLeft: '24px' }} />
-                 <Line type="monotone" dataKey="libidoAtual" stroke="#e53e3e" strokeWidth={4} activeDot={{ r: 6 }} name={`${currentMonthName} (${year})`} connectNulls dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} />
-                 <Line type="monotone" dataKey="libidoAnterior" stroke="#94a3b8" strokeWidth={2.5} strokeDasharray="4 4" activeDot={{ r: 4 }} name={`${prevMonthName} (Anterior)`} connectNulls dot={{ r: 2, strokeWidth: 1, fill: '#fff' }} />
-               </LineChart>
-             </ResponsiveContainer>
+
+           {/* Grid of 4 Season Cards */}
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {seasonsData.map((s) => {
+                 const pct = totalSexRecords > 0 ? Math.round((s.count / totalSexRecords) * 100) : 0;
+                 const isTop = s.id === mostActiveSeason?.id && s.count > 0;
+                 const isBottom = s.id === leastActiveSeason?.id && totalSexRecords > 0 && s.id !== mostActiveSeason?.id;
+
+                 let IconComponent = CloudSun;
+                 if (s.id === 'outono') IconComponent = Wind;
+                 if (s.id === 'inverno') IconComponent = Snowflake;
+                 if (s.id === 'primavera') IconComponent = Sun;
+                 if (s.id === 'verao') IconComponent = Flame;
+
+                 return (
+                    <div key={s.id} className={`relative p-5 rounded-3xl bg-gradient-to-br ${s.bg} border ${s.border} space-y-4 flex flex-col justify-between transition-all duration-300 hover:scale-[1.02]`}>
+                       <div>
+                          <div className="flex items-center justify-between mb-3">
+                             <div className={`p-2.5 rounded-2xl ${s.iconBg} shadow-sm`}>
+                                <IconComponent size={18} />
+                             </div>
+                             {isTop && (
+                                <span className="text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-white px-2.5 py-1 rounded-full shadow-sm animate-pulse">
+                                   Mais Ativa 🔥
+                                </span>
+                             )}
+                             {!isTop && isBottom && (
+                                <span className="text-[9px] font-black uppercase tracking-wider bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">
+                                   Menor Volume
+                                </span>
+                             )}
+                          </div>
+
+                          <h4 className="text-base font-black text-slate-900 font-display italic">
+                             {s.name}
+                          </h4>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
+                             {s.period}
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-500 mt-1">
+                             {s.tempType}
+                          </p>
+                       </div>
+
+                       <div className="pt-3 border-t border-slate-200/50 space-y-2">
+                          <div className="flex items-baseline justify-between">
+                             <span className={`text-2xl font-black font-display italic ${s.textAccent}`}>
+                                {s.count} <span className="text-xs font-bold text-slate-400 not-italic">transa{s.count !== 1 ? 's' : ''}</span>
+                             </span>
+                             <span className="text-xs font-black text-slate-700 bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-lg border border-slate-100">
+                                {pct}%
+                             </span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="w-full bg-white/60 h-2 rounded-full overflow-hidden p-0.5 border border-slate-100">
+                             <div 
+                                className={`h-full rounded-full transition-all duration-1000 ${
+                                   s.id === 'inverno' ? 'bg-blue-500' :
+                                   s.id === 'outono' ? 'bg-orange-500' :
+                                   s.id === 'primavera' ? 'bg-emerald-500' : 'bg-rose-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                             />
+                          </div>
+                       </div>
+                    </div>
+                 );
+              })}
+           </div>
+
+           {/* Thermal Impact & Insights Card */}
+           <div className="bg-slate-900 rounded-3xl p-6 text-white space-y-4 shadow-xl border border-slate-800 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-rose-500/10 via-blue-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex items-center gap-3">
+                 <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30">
+                    <Sparkles size={16} />
+                 </div>
+                 <h4 className="text-xs font-black uppercase tracking-[0.2em] text-rose-300 font-display italic">
+                    Diagnóstico do Impacto Térmico & Clima
+                 </h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                 <div className="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/60 flex flex-col justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                       Clima Ameno / Suave / Frio
+                    </span>
+                    <div className="mt-2 flex items-baseline gap-2">
+                       <span className="text-2xl font-black text-blue-400 font-display italic">
+                          {mildColdCount}
+                       </span>
+                       <span className="text-xs font-bold text-slate-300">
+                          transas ({mildColdPct}%)
+                       </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                       Outono + Inverno + Primavera
+                    </p>
+                 </div>
+
+                 <div className="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/60 flex flex-col justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                       Clima Quente / Abafado
+                    </span>
+                    <div className="mt-2 flex items-baseline gap-2">
+                       <span className="text-2xl font-black text-rose-400 font-display italic">
+                          {hotCount}
+                       </span>
+                       <span className="text-xs font-bold text-slate-300">
+                          transa{hotCount !== 1 ? 's' : ''} ({hotPct}%)
+                       </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                       Verão (21/Dez a 20/Mar)
+                    </p>
+                 </div>
+
+                 <div className="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/60 flex flex-col justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                       Estação Campeã de Volume
+                    </span>
+                    <div className="mt-2 flex items-center gap-2">
+                       <span className="text-xl font-black text-white font-display italic">
+                          {mostActiveSeason?.name || 'N/A'}
+                       </span>
+                       <span className="text-xs font-bold text-emerald-400 bg-emerald-500/20 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                          {mostActiveSeason?.count || 0} relações
+                       </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                       {mostActiveSeason?.id === 'verao' ? 'Verão manteve ritmo alto no período.' : 'Temperaturas amenas favoreceram a aproximação e o aconchego.'}
+                    </p>
+                 </div>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed pt-2 border-t border-slate-800 italic">
+                 💡 <strong className="text-white not-italic">Insight do Clima:</strong> {
+                    mildColdPct > hotPct
+                       ? `Confirmado com base nos registros: Climas mais frios e amenos (Outono e Inverno) concentram a grande maioria das relações (${mildColdPct}% do total). O calor abafado do Verão tende a diminuir a disposição, enquanto temperaturas mais suaves estimulam o contato físico, o edredom e o aconchego.`
+                       : `Distribuição equilibrada nas estações do ano, mostrando constância de apetite sexual independente do calor ou frio.`
+                 }
+              </p>
            </div>
         </section>
 

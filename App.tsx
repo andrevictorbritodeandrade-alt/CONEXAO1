@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, User } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut, User } from 'firebase/auth';
 import { initializeFirestore, collection, onSnapshot, doc, setDoc, query, orderBy, deleteDoc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 import { 
-  ResponsiveContainer, AreaChart, Area, Tooltip, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend
+  ResponsiveContainer, AreaChart, Area, Tooltip, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, ComposedChart, Bar
 } from 'recharts';
 import { 
   Calendar as CalendarIcon, 
@@ -40,7 +40,10 @@ import {
   Sun,
   Snowflake,
   Wind,
-  CloudSun
+  CloudSun,
+  TrendingUp,
+  TrendingDown,
+  BarChart3
 } from 'lucide-react';
 
 // --- Firebase Initialization ---
@@ -202,7 +205,7 @@ const LibidoIcon = ({ level, size = 32 }: { level: number, size?: number }) => {
 
 const getMarcellyCycleStateForDate = (dateStr: string) => {
   const dObj = new Date(dateStr + 'T12:00:00');
-  const baseDate = new Date('2026-06-18T12:00:00'); // Standard reference date when period and meds started
+  const baseDate = new Date('2026-08-10T12:00:00'); // Standard reference date when period and meds started
   const diffTime = dObj.getTime() - baseDate.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   
@@ -258,16 +261,26 @@ const App: React.FC = () => {
     medsEnds: false
   });
 
-  // Auth Listener
+  // Auth Listener (Automatic Firebase Cloud Session)
   useEffect(() => {
     const handleError = (e: ErrorEvent) => {
       setError(e.message);
     };
     window.addEventListener('error', handleError);
 
-    const unsubAuth = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setAuthLoading(false);
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        try {
+          // Automatically sign in anonymously to guarantee every session connects to Firebase Cloud
+          await signInAnonymously(auth);
+        } catch (anonErr: any) {
+          console.warn("Auto anonymous auth failed, using local session:", anonErr);
+          setAuthLoading(false);
+        }
+      } else {
+        setCurrentUser(user);
+        setAuthLoading(false);
+      }
     }, (err) => {
       setError("Auth error: " + err.message);
       setAuthLoading(false);
@@ -302,7 +315,8 @@ const App: React.FC = () => {
         '2026-04-23', '2026-04-26', '2026-04-27',
         '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
         '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26',
-        '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30'
+        '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30',
+        '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24'
       ];
       let modified = false;
       
@@ -314,23 +328,24 @@ const App: React.FC = () => {
           const isMay18 = d === '2026-05-18';
           const isMay22 = d === '2026-05-22';
           const isJune18 = d === '2026-06-18';
+          const isAugust10 = d === '2026-08-10';
 
           loadedRecords.push({
             id: 'forced-' + d,
             date: d,
-            hadSex: !isMay18 && !isMay22 && !isJune18, // Assuming sex only on other forced dates
+            hadSex: !isMay18 && !isMay22 && !isJune18 && !isAugust10, // Assuming sex only on other forced dates
             libido: 5,
             masturbated: false,
             usedTadala: false,
-            didClimax: true,
-            periodStarts: isMay18 || isJune18,
-            medsStarts: isMay18 || isJune18, // common practice to start Selene on Day 1
+            didClimax: !isAugust10,
+            periodStarts: isMay18 || isJune18 || isAugust10,
+            medsStarts: isMay18 || isJune18 || isAugust10, // common practice to start Selene on Day 1
             periodEnds: isApril23 || isMay22,
             timestamp: new Date(d + 'T12:00:00').getTime(),
             periodEnded: isApril23 || isMay22
           });
           modified = true;
-        } else if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30') {
+        } else if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-23' || d === '2026-08-24') {
           // Force hadSex to true specifically
           loadedRecords[existingIdx].hadSex = true;
           loadedRecords[existingIdx].libido = 5;
@@ -378,6 +393,13 @@ const App: React.FC = () => {
           { id: 'h26', date: '2026-07-24', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-07-24T12:00:00'), periodEnded: false },
           { id: 'h27', date: '2026-07-26', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-07-26T12:00:00'), periodEnded: false },
           { id: 'h28', date: '2026-07-30', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-07-30T12:00:00'), periodEnded: false },
+          { id: 'h29', date: '2026-08-04', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-08-04T12:00:00'), periodEnded: false },
+          { id: 'h30', date: '2026-08-07', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-08-07T12:00:00'), periodEnded: false },
+          { id: 'h31', date: '2026-08-08', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-08-08T12:00:00'), periodEnded: false },
+          { id: 'h32', date: '2026-08-09', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-08-09T12:00:00'), periodEnded: false },
+          { id: 'h33', date: '2026-08-10', hadSex: false, libido: 3, masturbated: false, usedTadala: false, didClimax: false, periodStarts: true, medsStarts: true, timestamp: Date.parse('2026-08-10T12:00:00'), periodEnded: false },
+          { id: 'h34', date: '2026-08-23', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-08-23T12:00:00'), periodEnded: false },
+          { id: 'h35', date: '2026-08-24', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-08-24T12:00:00'), periodEnded: false },
           { 
             id: 'yesterday-' + Date.now(),
             date: yesterdayStr,
@@ -405,12 +427,13 @@ const App: React.FC = () => {
       '2026-04-23', '2026-04-26', '2026-04-27',
       '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
       '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26',
-      '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30'
+      '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30',
+      '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24'
     ];
     
     forcedHistory.forEach(async (d) => {
       // Clean up duplicates if needed
-      if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30') {
+      if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-10' || d === '2026-08-23' || d === '2026-08-24') {
          const existing = records.filter(r => r.date === d);
          for (const ex of existing) {
            if (ex.id !== 'forced-' + d) {
@@ -419,23 +442,24 @@ const App: React.FC = () => {
          }
       }
       const exists = records.some(r => r.date === d && r.id === 'forced-' + d);
-      if (!exists || d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-06-18' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30') {
+      if (!exists || d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-06-18' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-10' || d === '2026-08-23' || d === '2026-08-24') {
         const id = 'forced-' + d;
         const isApril23 = d === '2026-04-23';
         const isMay18 = d === '2026-05-18';
         const isMay22 = d === '2026-05-22';
         const isJune18 = d === '2026-06-18';
+        const isAugust10 = d === '2026-08-10';
 
         await setDoc(doc(db, 'users', currentUser.uid, 'records', id), {
           id,
           date: d,
-          hadSex: !isMay18 && !isMay22 && !isJune18,
+          hadSex: !isMay18 && !isMay22 && !isJune18 && !isAugust10,
           libido: 5, // Peak performance
           masturbated: false,
           usedTadala: false,
-          didClimax: true,
-          periodStarts: isMay18 || isJune18,
-          medsStarts: isMay18 || isJune18,
+          didClimax: !isAugust10,
+          periodStarts: isMay18 || isJune18 || isAugust10,
+          medsStarts: isMay18 || isJune18 || isAugust10,
           periodEnds: isApril23 || isMay22,
           timestamp: new Date(d + 'T12:00:00').getTime(),
           periodEnded: isApril23 || isMay22
@@ -483,26 +507,27 @@ const App: React.FC = () => {
     }
   }, [records, currentUser]);
 
-  // Background Auto-Fix for 06-07, 06-18, 06-21, 06-26, 07-04, and 07-05 (One-time repair when records load)
+  // Background Auto-Fix for historical dates (One-time repair when records load)
   useEffect(() => {
     if (currentUser && records.length > 0) {
-      const fixDates = ['2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26', '2026-07-04', '2026-07-05'];
+      const fixDates = ['2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26', '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30', '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24'];
       fixDates.forEach(fixDate => {
         const specificRecords = records.filter(r => r.date === fixDate);
         const isJune18 = fixDate === '2026-06-18';
+        const isAugust10 = fixDate === '2026-08-10';
         
         // If missing completely, add it
         if (specificRecords.length === 0) {
           setDoc(doc(db, 'users', currentUser.uid, 'records', 'forced-' + fixDate), {
             id: 'forced-' + fixDate,
             date: fixDate,
-            hadSex: !isJune18,
+            hadSex: !isJune18 && !isAugust10,
             libido: 5,
             masturbated: false,
             usedTadala: false,
-            didClimax: !isJune18,
-            periodStarts: isJune18,
-            medsStarts: isJune18,
+            didClimax: !isJune18 && !isAugust10,
+            periodStarts: isJune18 || isAugust10,
+            medsStarts: isJune18 || isAugust10,
             periodEnds: false,
             timestamp: new Date(fixDate + 'T12:00:00').getTime(),
             periodEnded: false
@@ -510,7 +535,7 @@ const App: React.FC = () => {
         } else {
           // If it exists but has wrong flags, forceful correction!
           specificRecords.forEach(r => {
-            if (isJune18) {
+            if (isJune18 || isAugust10) {
               if (!r.periodStarts || !r.medsStarts) {
                 setDoc(doc(db, 'users', currentUser.uid, 'records', r.id), {
                   periodStarts: true,
@@ -535,9 +560,19 @@ const App: React.FC = () => {
   const handleSignIn = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (e) {
-      console.error("Login failed", e);
+      const currentLocalRecords = [...records];
+      const result = await signInWithPopup(auth, provider);
+      const newGoogleUser = result.user;
+      
+      // Transfer/Sync any records to the new Google user account
+      if (newGoogleUser && currentLocalRecords.length > 0) {
+        for (const rec of currentLocalRecords) {
+          await setDoc(doc(db, 'users', newGoogleUser.uid, 'records', rec.id), rec, { merge: true });
+        }
+      }
+    } catch (e: any) {
+      console.error("Login com Google falhou:", e);
+      alert("Não foi possível realizar o login com Google: " + (e.message || "Tente novamente"));
     }
   };
 
@@ -642,7 +677,7 @@ const App: React.FC = () => {
     const lastPeriodEnd = sortedRecords.find(r => r.periodEnds || r.periodEnded);
     const lastMedsStart = sortedRecords.find(r => r.medsStarts);
 
-    const startDate = lastPeriodStart ? new Date(lastPeriodStart.date + 'T12:00:00') : new Date('2026-06-18T12:00:00'); // Fallback to provided date
+    const startDate = lastPeriodStart ? new Date(lastPeriodStart.date + 'T12:00:00') : new Date('2026-08-10T12:00:00'); // Fallback to provided date
     const today = new Date(todayStr + 'T12:00:00');
     const diffTime = today.getTime() - startDate.getTime();
     const cycleDayRaw = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
@@ -744,16 +779,36 @@ const App: React.FC = () => {
                <Activity size={14} className="text-rose-400 animate-pulse" />
                PDF / Imprimir
             </button>
-            {currentUser ? (
-              <div id="sync-status" className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-500/20 border border-rose-500/30 text-rose-300 print:hidden shadow-sm backdrop-blur-sm">
-                 <Cloud size={14} className="text-rose-400" />
-                 <span className="text-[10px] font-black uppercase tracking-wider">Sincronizado</span>
+            <div id="sync-status" className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 print:hidden shadow-sm backdrop-blur-sm">
+               <span className="relative flex h-2 w-2">
+                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+               </span>
+               <Cloud size={14} className="text-emerald-400" />
+               <span className="text-[10px] font-black uppercase tracking-wider hidden sm:inline-block">Nuvem Firebase Ao Vivo</span>
+            </div>
+
+            {currentUser && !currentUser.isAnonymous ? (
+              <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-2xl">
+                {currentUser.photoURL ? (
+                  <img src={currentUser.photoURL} alt="User" className="w-6 h-6 rounded-full border border-rose-500/40" />
+                ) : (
+                  <UserIcon size={14} className="text-rose-400" />
+                )}
+                <span className="text-[10px] font-bold text-slate-200 max-w-[100px] truncate hidden md:inline-block">{currentUser.displayName || currentUser.email}</span>
+                <button onClick={handleSignOut} title="Sair da Conta" className="p-1 hover:text-rose-400 transition-colors text-slate-400">
+                  <LogOut size={14} />
+                </button>
               </div>
             ) : (
-              <div id="local-status" className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-800/90 border border-slate-700/80 text-slate-400">
-                 <Smartphone size={14} className="text-slate-400" />
-                 <span className="text-[10px] font-black uppercase tracking-wider">Local</span>
-              </div>
+              <button 
+                onClick={handleSignIn}
+                className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-rose-900/40 border border-rose-400/30 transition-all active:scale-95"
+              >
+                <LogIn size={14} />
+                <span className="hidden xs:inline-block">Entrar Google (Multi-Aparelhos)</span>
+                <span className="xs:hidden">Google</span>
+              </button>
             )}
           </div>
         </header>
@@ -963,6 +1018,52 @@ const Dashboard = ({
   const mildColdPct = totalSexRecords > 0 ? Math.round((mildColdCount / totalSexRecords) * 100) : 0;
   const hotPct = totalSexRecords > 0 ? Math.round((hotCount / totalSexRecords) * 100) : 0;
 
+  // --- 30 Days Evolution Chart Data (Financial Style) ---
+  let runningTotal = 0;
+  const last30DaysData = Array.from({ length: 30 }, (_, idx) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (29 - idx));
+    const yearStr = d.getFullYear();
+    const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
+    const dayLabel = `${dayStr}/${monthStr}`;
+
+    const rec = records.find((r: any) => r.date === dateStr);
+    const hadSex = rec && rec.hadSex ? true : false;
+    if (hadSex) runningTotal += 1;
+
+    return {
+      date: dateStr,
+      dayLabel,
+      dayIndex: idx + 1,
+      libido: rec ? rec.libido : null,
+      transa: hadSex ? 1 : 0,
+      hadSex,
+      didClimax: rec ? rec.didClimax : undefined,
+      usedTadala: rec ? rec.usedTadala : false,
+      hasRecord: !!rec,
+      acumulado: runningTotal,
+    };
+  });
+
+  const sexCountLast30Days = last30DaysData.filter(d => d.hadSex).length;
+  const climaxCount30Days = last30DaysData.filter(d => d.hadSex && d.didClimax === true).length;
+  const climaxRate30 = sexCountLast30Days > 0 ? Math.round((climaxCount30Days / sexCountLast30Days) * 100) : 100;
+  const activityRate30 = ((sexCountLast30Days / 30) * 100).toFixed(0);
+
+  // Financial Trend Calculation (First 15 Days vs Last 15 Days)
+  const first15Count = last30DaysData.slice(0, 15).filter(d => d.hadSex).length;
+  const last15Count = last30DaysData.slice(15, 30).filter(d => d.hadSex).length;
+  const trendDiff = last15Count - first15Count;
+  const trendPct = first15Count > 0 
+    ? Math.round(((last15Count - first15Count) / first15Count) * 100)
+    : last15Count > 0 ? 100 : 0;
+
+  // Overall Climax stats
+  const totalClimaxRecords = records.filter((r: any) => r.hadSex && r.didClimax === true).length;
+  const overallClimaxRate = totalSexRecords > 0 ? Math.round((totalClimaxRecords / totalSexRecords) * 100) : 100;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 animate-in fade-in slide-in-from-bottom-4 duration-700 items-start print:block">
       
@@ -980,8 +1081,8 @@ const Dashboard = ({
               <span className="text-3xl font-black text-slate-900">{sexPercentage}%</span>
            </div>
            <div className="p-4 bg-slate-50 rounded-2xl">
-              <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">Libido Média</span>
-              <span className="text-3xl font-black text-slate-900">{avgLibido.toFixed(1)}</span>
+              <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">Taxa de Finalização</span>
+              <span className="text-3xl font-black text-emerald-600">{overallClimaxRate}%</span>
            </div>
         </div>
       </div>
@@ -1039,10 +1140,10 @@ const Dashboard = ({
 
               <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-800/80">
                  <div className="space-y-1">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Libido Média</span>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Taxa de Clímax</span>
                     <div className="flex items-center gap-2">
-                       <Flame size={14} className="text-rose-500" fill="currentColor" />
-                       <span className="text-lg font-black font-display tracking-tight italic text-slate-100">{avgLibido.toFixed(1)}</span>
+                       <CheckCircle2 size={14} className="text-emerald-400" />
+                       <span className="text-lg font-black font-display tracking-tight italic text-emerald-300">{overallClimaxRate}%</span>
                     </div>
                  </div>
                  <div className="space-y-1">
@@ -1349,6 +1450,213 @@ const Dashboard = ({
            </div>
         </section>
 
+        {/* CHART SECTION: EVOLUÇÃO DOS ÚLTIMOS 30 DIAS (ESTILO MERCADO FINANCEIRO) */}
+        <section id="activity-30days-card" className="bg-slate-950 rounded-[32px] p-6 sm:p-8 border border-slate-800 shadow-2xl overflow-hidden text-white font-sans relative space-y-6">
+           {/* Ambient Terminal Reflection */}
+           <div className="absolute -top-24 -right-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+           <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+
+           {/* Financial Terminal Header */}
+           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-800/80 relative z-10">
+              <div className="space-y-2">
+                 <div className="flex items-center gap-2.5">
+                    <div className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                       <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                       </span>
+                       MERCADO ATIVO • INDEX-30D
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-widest">
+                       TICKER: $CONEXAO
+                    </span>
+                 </div>
+
+                 <div className="flex items-baseline gap-4 pt-1">
+                    <h3 className="text-3xl sm:text-4xl font-black font-display italic tracking-tight text-white">
+                       {sexCountLast30Days} <span className="text-sm font-sans uppercase not-italic tracking-wider text-slate-400 font-bold">eventos / 30d</span>
+                    </h3>
+                    <div className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 border ${
+                       trendDiff > 0 
+                         ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' 
+                         : trendDiff < 0 
+                         ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' 
+                         : 'bg-slate-800 text-slate-300 border-slate-700'
+                    }`}>
+                       {trendDiff > 0 ? <TrendingUp size={14} /> : trendDiff < 0 ? <TrendingDown size={14} /> : <Activity size={14} />}
+                       <span>{trendDiff > 0 ? `+${trendPct}% TENDÊNCIA BULLISH` : trendDiff < 0 ? `${trendPct}% CONSOLIDAÇÃO` : '0% ESTÁVEL'}</span>
+                    </div>
+                 </div>
+              </div>
+
+              {/* Terminal HUD Metrics Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                 <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 backdrop-blur-sm">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                       TAXA DE CLÍMAX
+                    </span>
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-black font-mono text-base">
+                       <CheckCircle2 size={14} />
+                       <span>{climaxRate30}%</span>
+                    </div>
+                 </div>
+
+                 <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 backdrop-blur-sm">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                       FREQUÊNCIA
+                    </span>
+                    <div className="flex items-center gap-1.5 text-amber-400 font-black font-mono text-base">
+                       <Sparkles size={14} />
+                       <span>{activityRate30}% <span className="text-[9px] text-slate-500 font-normal">dias</span></span>
+                    </div>
+                 </div>
+
+                 <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 backdrop-blur-sm col-span-2 sm:col-span-1">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                       VOLUME TOTAL
+                    </span>
+                    <div className="flex items-center gap-1.5 text-rose-400 font-black font-mono text-base">
+                       <Flame size={14} />
+                       <span>{sexCountLast30Days} <span className="text-[9px] text-slate-500 font-normal">transas</span></span>
+                    </div>
+                 </div>
+              </div>
+           </div>
+
+           {/* Chart Area */}
+           <div className="h-72 w-full pt-2 -ml-3 sm:ml-0 relative z-10">
+             <ResponsiveContainer width="100%" height="100%">
+               <ComposedChart data={last30DaysData} margin={{ top: 15, right: 15, left: -20, bottom: 5 }}>
+                 <defs>
+                   <linearGradient id="financialGreen" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                     <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                   </linearGradient>
+                   <linearGradient id="volumeBar" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.9} />
+                     <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.3} />
+                   </linearGradient>
+                 </defs>
+                 
+                 <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                 
+                 <XAxis 
+                   dataKey="dayLabel" 
+                   axisLine={{ stroke: '#334155' }} 
+                   tickLine={false} 
+                   tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} 
+                   dy={10} 
+                   interval={2} 
+                 />
+                 
+                 <YAxis 
+                   yAxisId="acumulado" 
+                   orientation="right" 
+                   domain={[0, 'dataMax + 1']} 
+                   tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700, fontFamily: 'monospace' }} 
+                   axisLine={false} 
+                   tickLine={false} 
+                 />
+                 <YAxis yAxisId="volume" orientation="left" domain={[0, 1.2]} hide={true} />
+                 
+                 <Tooltip 
+                   cursor={{ stroke: '#3b82f6', strokeWidth: 1.5, strokeDasharray: '4 4' }} 
+                   content={({ active, payload }) => {
+                     if (active && payload && payload.length) {
+                       const data = payload[0].payload;
+                       return (
+                         <div className="bg-slate-900/95 backdrop-blur-md text-white p-4 rounded-2xl shadow-2xl border border-slate-700 font-sans text-xs space-y-2 min-w-[200px] animate-in zoom-in-95 duration-150">
+                           <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-mono">
+                               {new Date(data.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} • DIA {data.dayIndex}
+                             </span>
+                             <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                               data.hadSex ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-slate-800 text-slate-400'
+                             }`}>
+                               {data.hadSex ? 'SINAL ALTA' : 'REPOUSO'}
+                             </span>
+                           </div>
+
+                           <div className="space-y-1.5 font-mono">
+                             <div className="flex justify-between items-center">
+                               <span className="text-slate-400 font-sans text-[11px]">Relação Sexual:</span>
+                               <span className={`font-black ${data.hadSex ? 'text-rose-400' : 'text-slate-500'}`}>
+                                 {data.hadSex ? '🔥 SIM (1)' : 'NÃO (0)'}
+                               </span>
+                             </div>
+
+                             {data.hadSex && (
+                               <div className="flex justify-between items-center">
+                                 <span className="text-slate-400 font-sans text-[11px]">Finalização:</span>
+                                 <span className={`font-black ${data.didClimax === true ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                   {data.didClimax === true ? '✅ COM CLÍMAX' : '⚠️ SEM CLÍMAX'}
+                                 </span>
+                               </div>
+                             )}
+
+                             <div className="flex justify-between items-center pt-1 border-t border-slate-800/80">
+                               <span className="text-slate-400 font-sans text-[11px]">Acumulado (30d):</span>
+                               <span className="font-black text-emerald-400 font-display italic">
+                                 #{data.acumulado}
+                               </span>
+                             </div>
+
+                             {data.usedTadala && (
+                               <div className="pt-1.5 border-t border-slate-800 flex items-center gap-1.5 text-amber-300 font-bold text-[10px] uppercase tracking-wider font-sans">
+                                 <Pill size={12} /> SUPLEMENTO TADALA ATIVO
+                               </div>
+                             )}
+                           </div>
+                         </div>
+                       );
+                     }
+                     return null;
+                   }} 
+                 />
+
+                 <Legend 
+                   verticalAlign="top" 
+                   align="right" 
+                   height={36} 
+                   wrapperStyle={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', paddingBottom: '10px' }} 
+                 />
+
+                 <Bar 
+                   yAxisId="volume" 
+                   dataKey="transa" 
+                   fill="url(#volumeBar)" 
+                   radius={[4, 4, 0, 0]} 
+                   name="Volume Diário (Evento)" 
+                   barSize={10} 
+                 />
+
+                 <Area 
+                   yAxisId="acumulado" 
+                   type="monotone" 
+                   dataKey="acumulado" 
+                   stroke="#10b981" 
+                   strokeWidth={3.5} 
+                   fill="url(#financialGreen)" 
+                   name="Índice de Acumulado" 
+                   activeDot={{ r: 6, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} 
+                 />
+               </ComposedChart>
+             </ResponsiveContainer>
+           </div>
+
+           {/* Financial Footer ticker bar */}
+           <div className="pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-[10px] font-mono text-slate-500 uppercase tracking-widest relative z-10">
+              <div className="flex items-center gap-2">
+                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                 <span>LINHA VERDE: CURVA CUMULATIVA DE DESEMPENHO</span>
+              </div>
+              <div className="flex items-center gap-2">
+                 <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                 <span>BARRAS VERMELHAS: VOLUME DIÁRIO REGISTRADO</span>
+              </div>
+           </div>
+        </section>
+
         {/* SEASONAL ANALYSIS SECTION */}
         <section id="seasons-analysis-card" className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-[0_12px_40px_rgba(0,0,0,0.015)] space-y-8 transition-all duration-300 hover:shadow-md">
            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1536,13 +1844,13 @@ const Dashboard = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 print:grid-cols-1">
              {sexHistory.map((rec: any) => (
                 <div key={rec.id} className="bg-white border border-slate-100 rounded-3xl p-5 flex items-center gap-5 transition-all duration-300 hover:border-brand-200 hover:shadow-md hover:shadow-rose-500/5 hover:-translate-y-0.5 group shadow-[0_4px_25px_rgba(0,0,0,0.01)] print:shadow-none print:border-slate-150">
-                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-md shadow-slate-100 transition-transform group-hover:scale-105 print:shadow-sm" style={{ backgroundColor: LIBIDO_META[rec.libido].color }}>
+                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-md shadow-slate-100 transition-transform group-hover:scale-105 bg-gradient-to-br from-rose-500 to-rose-600 print:shadow-sm">
                       <Flame size={22} fill="currentColor" />
                    </div>
                    <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center mb-1 gap-4">
                          <h4 className="text-lg font-black text-slate-900 font-display italic truncate">{new Date(rec.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</h4>
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-lg">{LIBIDO_META[rec.libido].label}</span>
+                         <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest shrink-0 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-lg">REGISTRO</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5 mt-2">
                          {rec.hadSex && rec.didClimax === false && <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black flex items-center gap-1 border border-rose-100 italic"><AlertCircle size={10} /> SEM CLÍMAX</span>}
@@ -1593,16 +1901,6 @@ const CheckinModal = ({
         </button>
       </div>
       <div className="space-y-8">
-        <div className="space-y-4">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Nível de desejo (Você)</p>
-          <div className="flex justify-between gap-2 bg-slate-50 p-2 rounded-[28px] border border-slate-100">
-            {[1, 2, 3, 4, 5].map((level) => (
-              <button key={level} onClick={() => setCheckinLibido(level)} className={`flex-1 aspect-square rounded-2xl flex items-center justify-center transition-all duration-300 ${checkinLibido === level ? 'scale-110 shadow-xl shadow-brand-600/20 text-white' : 'text-slate-300 hover:bg-white hover:text-slate-200'}`} style={{ backgroundColor: checkinLibido === level ? LIBIDO_META[level].color : 'transparent' }}>
-                <LibidoIcon level={level} size={28} />
-              </button>
-            ))}
-          </div>
-        </div>
         <div className="space-y-4">
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Suas Atividades</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

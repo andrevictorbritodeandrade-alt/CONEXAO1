@@ -134,6 +134,7 @@ interface Record {
   medsStarts?: boolean;   // Começou cartela
   medsEnds?: boolean;     // Parou cartela (Pausa)
   
+  temperature?: number; // Temperatura média/máxima do dia
   notes?: string;
   timestamp: number;
 }
@@ -205,7 +206,7 @@ const LibidoIcon = ({ level, size = 32 }: { level: number, size?: number }) => {
 
 const getMarcellyCycleStateForDate = (dateStr: string) => {
   const dObj = new Date(dateStr + 'T12:00:00');
-  const baseDate = new Date('2026-08-10T12:00:00'); // Standard reference date when period and meds started
+  const baseDate = new Date('2026-08-19T12:00:00'); // Standard reference date when period and meds started
   const diffTime = dObj.getTime() - baseDate.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
   
@@ -224,6 +225,17 @@ const getMarcellyCycleStateForDate = (dateStr: string) => {
     isPillTaking: cycleDay >= 1 && cycleDay <= 21,    // Tomando o remédio
     isPillBreak: cycleDay >= 22 && cycleDay <= 28,    // Pausa do remédio
   };
+};
+
+const getMockTempForDate = (dateStr: string) => {
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return 25;
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  
+  if (month >= 6 && month <= 8) return 18 + (day % 6); // Frio: 18-23
+  if (month >= 3 && month <= 5 || month >= 9 && month <= 11) return 24 + (day % 5); // Ameno: 24-28
+  return 29 + (day % 7); // Calor: 29-35
 };
 
 const App: React.FC = () => {
@@ -250,7 +262,8 @@ const App: React.FC = () => {
     hadSex: false,
     masturbated: false,
     usedTadala: false,
-    didClimax: true // Default to true when adding new sex record
+    didClimax: true, // Default to true when adding new sex record
+    temperature: 25
   });
 
   // Partner Activities (Marcelly)
@@ -316,7 +329,7 @@ const App: React.FC = () => {
         '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
         '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26',
         '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30',
-        '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24'
+        '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24', '2026-09-06', '2026-09-10', '2026-09-13', '2026-09-20'
       ];
       let modified = false;
       
@@ -329,23 +342,24 @@ const App: React.FC = () => {
           const isMay22 = d === '2026-05-22';
           const isJune18 = d === '2026-06-18';
           const isAugust10 = d === '2026-08-10';
+          const isSept10 = d === '2026-09-10';
 
           loadedRecords.push({
             id: 'forced-' + d,
             date: d,
-            hadSex: !isMay18 && !isMay22 && !isJune18 && !isAugust10, // Assuming sex only on other forced dates
+            hadSex: !isMay18 && !isMay22 && !isJune18 && !isAugust10 && !isSept10, // Assuming sex only on other forced dates
             libido: 5,
             masturbated: false,
             usedTadala: false,
-            didClimax: !isAugust10,
-            periodStarts: isMay18 || isJune18 || isAugust10,
-            medsStarts: isMay18 || isJune18 || isAugust10, // common practice to start Selene on Day 1
+            didClimax: !isAugust10 && !isSept10,
+            periodStarts: isMay18 || isJune18 || isAugust10 || isSept10,
+            medsStarts: isMay18 || isJune18 || isAugust10, 
             periodEnds: isApril23 || isMay22,
             timestamp: new Date(d + 'T12:00:00').getTime(),
             periodEnded: isApril23 || isMay22
           });
           modified = true;
-        } else if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-23' || d === '2026-08-24') {
+        } else if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-23' || d === '2026-08-24' || d === '2026-09-06' || d === '2026-09-13' || d === '2026-09-20') {
           // Force hadSex to true specifically
           loadedRecords[existingIdx].hadSex = true;
           loadedRecords[existingIdx].libido = 5;
@@ -400,6 +414,9 @@ const App: React.FC = () => {
           { id: 'h33', date: '2026-08-10', hadSex: false, libido: 3, masturbated: false, usedTadala: false, didClimax: false, periodStarts: true, medsStarts: true, timestamp: Date.parse('2026-08-10T12:00:00'), periodEnded: false },
           { id: 'h34', date: '2026-08-23', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-08-23T12:00:00'), periodEnded: false },
           { id: 'h35', date: '2026-08-24', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-08-24T12:00:00'), periodEnded: false },
+          { id: 'h36', date: '2026-09-06', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-09-06T12:00:00'), periodEnded: false },
+          { id: 'h37', date: '2026-09-13', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-09-13T12:00:00'), periodEnded: false },
+          { id: 'h38', date: '2026-09-20', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-09-20T12:00:00'), periodEnded: false },
           { 
             id: 'yesterday-' + Date.now(),
             date: yesterdayStr,
@@ -428,12 +445,12 @@ const App: React.FC = () => {
       '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
       '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26',
       '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30',
-      '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24'
+      '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24', '2026-09-06', '2026-09-10', '2026-09-13', '2026-09-20'
     ];
     
     forcedHistory.forEach(async (d) => {
       // Clean up duplicates if needed
-      if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-10' || d === '2026-08-23' || d === '2026-08-24') {
+      if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-10' || d === '2026-08-23' || d === '2026-08-24' || d === '2026-09-06' || d === '2026-09-10' || d === '2026-09-13' || d === '2026-09-20') {
          const existing = records.filter(r => r.date === d);
          for (const ex of existing) {
            if (ex.id !== 'forced-' + d) {
@@ -442,7 +459,7 @@ const App: React.FC = () => {
          }
       }
       const exists = records.some(r => r.date === d && r.id === 'forced-' + d);
-      if (!exists || d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-06-18' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-10' || d === '2026-08-23' || d === '2026-08-24') {
+      if (!exists || d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-06-18' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-10' || d === '2026-08-23' || d === '2026-08-24' || d === '2026-09-06' || d === '2026-09-13' || d === '2026-09-20') {
         const id = 'forced-' + d;
         const isApril23 = d === '2026-04-23';
         const isMay18 = d === '2026-05-18';
@@ -510,23 +527,31 @@ const App: React.FC = () => {
   // Background Auto-Fix for historical dates (One-time repair when records load)
   useEffect(() => {
     if (currentUser && records.length > 0) {
-      const fixDates = ['2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26', '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30', '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24'];
+      // Clean up mistake for 2026-09-08
+      const badDate = '2026-09-08';
+      const badRecords = records.filter(r => r.date === badDate && r.hadSex);
+      badRecords.forEach(br => {
+        deleteDoc(doc(db, 'users', currentUser.uid, 'records', br.id)).catch(console.error);
+      });
+
+      const fixDates = ['2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26', '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30', '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24', '2026-09-06', '2026-09-10', '2026-09-13', '2026-09-20'];
       fixDates.forEach(fixDate => {
         const specificRecords = records.filter(r => r.date === fixDate);
         const isJune18 = fixDate === '2026-06-18';
         const isAugust10 = fixDate === '2026-08-10';
+        const isSept10 = fixDate === '2026-09-10';
         
         // If missing completely, add it
         if (specificRecords.length === 0) {
           setDoc(doc(db, 'users', currentUser.uid, 'records', 'forced-' + fixDate), {
             id: 'forced-' + fixDate,
             date: fixDate,
-            hadSex: !isJune18 && !isAugust10,
+            hadSex: !isJune18 && !isAugust10 && !isSept10,
             libido: 5,
             masturbated: false,
             usedTadala: false,
-            didClimax: !isJune18 && !isAugust10,
-            periodStarts: isJune18 || isAugust10,
+            didClimax: !isJune18 && !isAugust10 && !isSept10,
+            periodStarts: isJune18 || isAugust10 || isSept10,
             medsStarts: isJune18 || isAugust10,
             periodEnds: false,
             timestamp: new Date(fixDate + 'T12:00:00').getTime(),
@@ -535,11 +560,11 @@ const App: React.FC = () => {
         } else {
           // If it exists but has wrong flags, forceful correction!
           specificRecords.forEach(r => {
-            if (isJune18 || isAugust10) {
-              if (!r.periodStarts || !r.medsStarts) {
+            if (isJune18 || isAugust10 || isSept10) {
+              if (!r.periodStarts) {
                 setDoc(doc(db, 'users', currentUser.uid, 'records', r.id), {
                   periodStarts: true,
-                  medsStarts: true
+                  medsStarts: isJune18 || isAugust10
                 }, { merge: true });
               }
             } else {
@@ -596,7 +621,8 @@ const App: React.FC = () => {
         hadSex: existingRecord.hadSex,
         masturbated: existingRecord.masturbated,
         usedTadala: existingRecord.usedTadala,
-        didClimax: existingRecord.didClimax !== undefined ? existingRecord.didClimax : true
+        didClimax: existingRecord.didClimax !== undefined ? existingRecord.didClimax : true,
+        temperature: existingRecord.temperature || 25
       });
       setCheckinPartner({
         periodStarts: existingRecord.periodStarts || false,
@@ -606,7 +632,7 @@ const App: React.FC = () => {
       });
     } else {
       setCheckinLibido(3);
-      setCheckinActivities({ hadSex: false, masturbated: false, usedTadala: false, didClimax: true });
+      setCheckinActivities({ hadSex: false, masturbated: false, usedTadala: false, didClimax: true, temperature: 25 });
       setCheckinPartner({ periodStarts: false, periodEnds: false, medsStarts: false, medsEnds: false });
     }
     setIsCheckinOpen(true);
@@ -633,6 +659,7 @@ const App: React.FC = () => {
       periodEnded: checkinPartner.periodEnds, 
       medsStarts: checkinPartner.medsStarts,
       medsEnds: checkinPartner.medsEnds,
+      temperature: checkinActivities.temperature,
       timestamp: new Date(editingDate + 'T12:00:00').getTime()
     };
 
@@ -846,6 +873,7 @@ const App: React.FC = () => {
                 checkinLibido={checkinLibido}
                 setCheckinLibido={setCheckinLibido}
                 checkinActivities={checkinActivities}
+                setCheckinActivities={setCheckinActivities}
                 toggleActivity={toggleActivity}
                 checkinPartner={checkinPartner}
                 togglePartner={togglePartner}
@@ -1017,6 +1045,33 @@ const Dashboard = ({
   const hotCount = seasonsData.find(s => s.id === 'verao')?.count || 0;
   const mildColdPct = totalSexRecords > 0 ? Math.round((mildColdCount / totalSexRecords) * 100) : 0;
   const hotPct = totalSexRecords > 0 ? Math.round((hotCount / totalSexRecords) * 100) : 0;
+
+  // --- Temperature Analysis ---
+  const tempStats = {
+    frio: { count: 0, total: 0 },
+    ameno: { count: 0, total: 0 },
+    calor: { count: 0, total: 0 }
+  };
+
+  records.forEach((r: any) => {
+    const t = r.temperature !== undefined ? r.temperature : getMockTempForDate(r.date);
+    const cat = t < 22 ? 'frio' : t > 27 ? 'calor' : 'ameno';
+    tempStats[cat].total += 1;
+    if (r.hadSex) {
+      tempStats[cat].count += 1;
+    }
+  });
+
+  const tempFrioPct = tempStats.frio.total > 0 ? Math.round((tempStats.frio.count / tempStats.frio.total) * 100) : 0;
+  const tempAmenoPct = tempStats.ameno.total > 0 ? Math.round((tempStats.ameno.count / tempStats.ameno.total) * 100) : 0;
+  const tempCalorPct = tempStats.calor.total > 0 ? Math.round((tempStats.calor.count / tempStats.calor.total) * 100) : 0;
+
+  // Determine which temperature favors sex the most
+  const highestTempConversion = Math.max(tempFrioPct, tempAmenoPct, tempCalorPct);
+  let bestTempLabel = 'Equilibrado';
+  if (highestTempConversion === tempFrioPct && tempFrioPct > 0) bestTempLabel = 'Frio (<22°C)';
+  else if (highestTempConversion === tempAmenoPct && tempAmenoPct > 0) bestTempLabel = 'Ameno (22°C-27°C)';
+  else if (highestTempConversion === tempCalorPct && tempCalorPct > 0) bestTempLabel = 'Calor (>27°C)';
 
   // --- 30 Days Evolution Chart Data (Financial Style) ---
   let runningTotal = 0;
@@ -1756,74 +1811,77 @@ const Dashboard = ({
            <div className="bg-slate-900 rounded-3xl p-6 text-white space-y-4 shadow-xl border border-slate-800 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-rose-500/10 via-blue-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
               
-              <div className="flex items-center gap-3">
-                 <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30">
-                    <Sparkles size={16} />
+              <div className="flex items-center justify-between gap-3 relative z-10">
+                 <div className="flex items-center gap-3">
+                   <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30">
+                      <Thermometer size={16} />
+                   </div>
+                   <h4 className="text-xs font-black uppercase tracking-[0.2em] text-rose-300 font-display italic">
+                      Propensão por Temperatura
+                   </h4>
                  </div>
-                 <h4 className="text-xs font-black uppercase tracking-[0.2em] text-rose-300 font-display italic">
-                    Diagnóstico do Impacto Térmico & Clima
-                 </h4>
+                 <span className="text-[9px] uppercase tracking-widest text-slate-400 font-black px-2 py-1 bg-slate-800/80 rounded-lg">Média Local</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1 relative z-10">
                  <div className="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/60 flex flex-col justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                       Clima Ameno / Suave / Frio
+                    <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">
+                       Dias Frios (&lt;22°C)
                     </span>
                     <div className="mt-2 flex items-baseline gap-2">
-                       <span className="text-2xl font-black text-blue-400 font-display italic">
-                          {mildColdCount}
+                       <span className="text-2xl font-black text-white font-display italic">
+                          {tempStats.frio.count}
                        </span>
-                       <span className="text-xs font-bold text-slate-300">
-                          transas ({mildColdPct}%)
+                       <span className="text-[10px] font-bold text-slate-400 uppercase">
+                          / {tempStats.frio.total}
                        </span>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                       Outono + Inverno + Primavera
+                    <p className="text-[10px] text-slate-300 mt-1 font-bold">
+                       {tempFrioPct}% de conversão
                     </p>
                  </div>
 
                  <div className="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/60 flex flex-col justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                       Clima Quente / Abafado
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                       Dias Amenos (22-27°C)
                     </span>
                     <div className="mt-2 flex items-baseline gap-2">
-                       <span className="text-2xl font-black text-rose-400 font-display italic">
-                          {hotCount}
+                       <span className="text-2xl font-black text-white font-display italic">
+                          {tempStats.ameno.count}
                        </span>
-                       <span className="text-xs font-bold text-slate-300">
-                          transa{hotCount !== 1 ? 's' : ''} ({hotPct}%)
+                       <span className="text-[10px] font-bold text-slate-400 uppercase">
+                          / {tempStats.ameno.total}
                        </span>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                       Verão (21/Dez a 20/Mar)
+                    <p className="text-[10px] text-slate-300 mt-1 font-bold">
+                       {tempAmenoPct}% de conversão
                     </p>
                  </div>
 
                  <div className="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/60 flex flex-col justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
-                       Estação Campeã de Volume
+                    <span className="text-[10px] font-black uppercase tracking-wider text-rose-400">
+                       Dias Quentes (&gt;27°C)
                     </span>
-                    <div className="mt-2 flex items-center gap-2">
-                       <span className="text-xl font-black text-white font-display italic">
-                          {mostActiveSeason?.name || 'N/A'}
+                    <div className="mt-2 flex items-baseline gap-2">
+                       <span className="text-2xl font-black text-white font-display italic">
+                          {tempStats.calor.count}
                        </span>
-                       <span className="text-xs font-bold text-emerald-400 bg-emerald-500/20 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                          {mostActiveSeason?.count || 0} relações
+                       <span className="text-[10px] font-bold text-slate-400 uppercase">
+                          / {tempStats.calor.total}
                        </span>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                       {mostActiveSeason?.id === 'verao' ? 'Verão manteve ritmo alto no período.' : 'Temperaturas amenas favoreceram a aproximação e o aconchego.'}
+                    <p className="text-[10px] text-slate-300 mt-1 font-bold">
+                       {tempCalorPct}% de conversão
                     </p>
                  </div>
               </div>
 
-              <p className="text-xs text-slate-300 leading-relaxed pt-2 border-t border-slate-800 italic">
-                 💡 <strong className="text-white not-italic">Insight do Clima:</strong> {
-                    mildColdPct > hotPct
-                       ? `Confirmado com base nos registros: Climas mais frios e amenos (Outono e Inverno) concentram a grande maioria das relações (${mildColdPct}% do total). O calor abafado do Verão tende a diminuir a disposição, enquanto temperaturas mais suaves estimulam o contato físico, o edredom e o aconchego.`
-                       : `Distribuição equilibrada nas estações do ano, mostrando constância de apetite sexual independente do calor ou frio.`
-                 }
+              <p className="text-xs text-slate-300 leading-relaxed pt-2 border-t border-slate-800 italic relative z-10 flex gap-2">
+                <span className="text-lg">🌡️</span> 
+                <span>
+                 <strong className="text-white not-italic block mb-0.5">Clima ideal: {bestTempLabel}</strong> 
+                 De acordo com os registros, dias de clima <strong>{bestTempLabel.split(' ')[0]}</strong> apresentam a maior taxa de conversão (transas vs. dias logados).
+                </span>
               </p>
            </div>
         </section>
@@ -1882,7 +1940,7 @@ const Dashboard = ({
 
 const CheckinModal = ({ 
   editingDate, todayStr, checkinLibido, setCheckinLibido, 
-  checkinActivities, toggleActivity, checkinPartner, togglePartner, 
+  checkinActivities, setCheckinActivities, toggleActivity, checkinPartner, togglePartner, 
   handleSaveCheckin, onClose 
 }: any) => {
   const dateObj = new Date(editingDate + 'T12:00:00');
@@ -1932,6 +1990,34 @@ const CheckinModal = ({
             </div>
           )}
         </div>
+        
+        {/* Temperature Input */}
+        <div className="space-y-3">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Clima e Temperatura</p>
+          <div className="bg-slate-50 p-5 rounded-[32px] border border-slate-100 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-slate-500">
+                <Thermometer size={24} className={checkinActivities.temperature > 27 ? "text-rose-500" : checkinActivities.temperature < 22 ? "text-blue-500" : "text-emerald-500"} />
+                <span className="font-bold text-sm uppercase tracking-widest">Média do Dia</span>
+              </div>
+              <span className="text-3xl font-black font-display italic text-slate-800">{checkinActivities.temperature}°C</span>
+            </div>
+            <input 
+              type="range" 
+              min="10" 
+              max="42" 
+              value={checkinActivities.temperature} 
+              onChange={(e) => setCheckinActivities((prev: any) => ({...prev, temperature: parseInt(e.target.value)}))}
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-500"
+            />
+            <div className="flex justify-between text-[9px] font-black uppercase text-slate-400 tracking-widest px-1">
+              <span>Frio</span>
+              <span>Ameno</span>
+              <span>Calor</span>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-brand-50/50 p-6 rounded-[32px] border border-brand-100 space-y-4">
            <p className="text-xs font-black text-brand-600 uppercase tracking-widest text-center flex items-center justify-center gap-2">
              <CalendarHeart size={16} /> Ciclo da Marcelly

@@ -4,7 +4,7 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signI
 import { initializeFirestore, collection, onSnapshot, doc, setDoc, query, orderBy, deleteDoc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 import { 
-  ResponsiveContainer, AreaChart, Area, Tooltip, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, ComposedChart, Bar
+  ResponsiveContainer, AreaChart, Area, Tooltip, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, ComposedChart, Bar, BarChart
 } from 'recharts';
 import { 
   Calendar as CalendarIcon, 
@@ -786,7 +786,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 selection:bg-rose-100 selection:text-rose-900 flex flex-col relative overflow-x-hidden pb-12">
       {/* Top Accent Gradient Background Fading down into slate-50 */}
-      <div id="top-header-gradient" className="w-full bg-gradient-to-b from-slate-950 via-slate-900 via-rose-950/20 to-transparent pb-8 pt-4 px-3 sm:px-6 transition-all duration-500 relative">
+      <div id="top-header-gradient" className="w-full bg-gradient-to-b from-white via-rose-50/30 to-transparent pb-8 pt-4 px-3 sm:px-6 transition-all duration-500 relative">
         <div id="ambient-glow-header" className="absolute top-0 right-1/4 w-[500px] h-32 bg-rose-600/15 rounded-full blur-[90px] pointer-events-none -z-10" />
 
         {/* HEADER */}
@@ -1317,6 +1317,31 @@ const Dashboard = ({
 
       {/* MAIN CONTENT: Calendar, Chart & History */}
       <div className="lg:col-span-8 space-y-6 lg:space-y-8">
+        {/* CHART SECTION */}
+        <section id="day-of-week-chart" className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_12px_40px_rgba(0,0,0,0.015)]">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 font-display">Frequência por Dia da Semana</h3>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={(() => {
+                const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                const dayStats = records
+                  .filter((r: any) => r.hadSex)
+                  .reduce((acc: any, r: any) => {
+                    const day = new Date(r.date + 'T12:00:00').getDay();
+                    acc[day] = (acc[day] || 0) + 1;
+                    return acc;
+                  }, {});
+                return daysOfWeek.map((day, idx) => ({ name: day, count: dayStats[idx] || 0 }));
+              })()}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} />
+                <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}} />
+                <Bar dataKey="count" fill="#e11d48" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
         {/* CALENDAR SECTION */}
         <section id="calendar-card" className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_12px_40px_rgba(0,0,0,0.015)] relative">
            <div className="flex items-center justify-between mb-8">

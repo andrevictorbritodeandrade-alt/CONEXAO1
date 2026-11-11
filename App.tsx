@@ -4,7 +4,7 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signI
 import { initializeFirestore, collection, onSnapshot, doc, setDoc, query, orderBy, deleteDoc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 import { 
-  ResponsiveContainer, AreaChart, Area, Tooltip, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, ComposedChart, Bar, BarChart
+  ResponsiveContainer, AreaChart, Area, Tooltip, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, ComposedChart, Bar, BarChart, Cell
 } from 'recharts';
 import { 
   Calendar as CalendarIcon, 
@@ -329,12 +329,14 @@ const App: React.FC = () => {
         '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
         '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26',
         '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30',
-        '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24', '2026-09-06', '2026-09-10', '2026-09-13', '2026-09-20', '2026-09-26', '2026-10-03', '2026-10-10'
+        '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24', '2026-09-06', '2026-09-10', '2026-09-13', '2026-09-20', '2026-09-26', '2026-10-03', '2026-10-10', '2026-10-11', '2026-10-17', '2026-10-18', '2026-10-22', '2026-10-31'
       ];
+      const nonSexDates = ['2026-04-23', '2026-05-18', '2026-05-22', '2026-06-18', '2026-08-10', '2026-09-10'];
       let modified = false;
       
       forcedHistory.forEach(d => {
         const existingIdx = loadedRecords.findIndex(r => r.date === d);
+        const isNonSex = nonSexDates.includes(d);
         
         if (existingIdx === -1) {
           const isApril23 = d === '2026-04-23';
@@ -347,11 +349,11 @@ const App: React.FC = () => {
           loadedRecords.push({
             id: 'forced-' + d,
             date: d,
-            hadSex: !isMay18 && !isMay22 && !isJune18 && !isAugust10 && !isSept10, // Assuming sex only on other forced dates
+            hadSex: !isNonSex,
             libido: 5,
             masturbated: false,
             usedTadala: false,
-            didClimax: !isAugust10 && !isSept10,
+            didClimax: !isNonSex,
             periodStarts: isMay18 || isJune18 || isAugust10 || isSept10,
             medsStarts: isMay18 || isJune18 || isAugust10, 
             periodEnds: isApril23 || isMay22,
@@ -359,7 +361,7 @@ const App: React.FC = () => {
             periodEnded: isApril23 || isMay22
           });
           modified = true;
-        } else if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-23' || d === '2026-08-24' || d === '2026-09-06' || d === '2026-09-13' || d === '2026-09-20' || d === '2026-09-26' || d === '2026-10-03') {
+        } else if (!isNonSex) {
           // Force hadSex to true specifically
           loadedRecords[existingIdx].hadSex = true;
           loadedRecords[existingIdx].libido = 5;
@@ -368,15 +370,17 @@ const App: React.FC = () => {
         }
       });
 
+      // Remove any erroneous sex records on Tuesday 2026-10-13 if present
+      const tuesdayIdx = loadedRecords.findIndex(r => r.date === '2026-10-13');
+      if (tuesdayIdx !== -1 && loadedRecords[tuesdayIdx].hadSex) {
+        loadedRecords[tuesdayIdx].hadSex = false;
+        modified = true;
+      }
+
       if (loadedRecords.length > 0) {
         setRecords(loadedRecords);
       } else {
         // Default initial data logic if needed
-        const currentYear = new Date().getFullYear();
-        const yesterdayDate = new Date();
-        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-        const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
-        
         const initialData: Record[] = [
           // User requested records
           { id: 'h1', date: '2026-01-02', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-01-02T12:00:00'), periodEnded: false },
@@ -419,16 +423,12 @@ const App: React.FC = () => {
           { id: 'h38', date: '2026-09-20', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-09-20T12:00:00'), periodEnded: false },
           { id: 'h39', date: '2026-09-26', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-09-26T12:00:00'), periodEnded: false },
           { id: 'h40', date: '2026-10-03', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-10-03T12:00:00'), periodEnded: false },
-          { 
-            id: 'yesterday-' + Date.now(),
-            date: yesterdayStr,
-            hadSex: false,
-            libido: 3,
-            masturbated: false,
-            usedTadala: false,
-            periodEnded: false,
-            timestamp: yesterdayDate.getTime()
-          }
+          { id: 'h41', date: '2026-10-10', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-10-10T12:00:00'), periodEnded: false },
+          { id: 'h42', date: '2026-10-11', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-10-11T12:00:00'), periodEnded: false },
+          { id: 'h43', date: '2026-10-17', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-10-17T12:00:00'), periodEnded: false },
+          { id: 'h44', date: '2026-10-18', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-10-18T12:00:00'), periodEnded: false },
+          { id: 'h45', date: '2026-10-22', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-10-22T12:00:00'), periodEnded: false },
+          { id: 'h46', date: '2026-10-31', hadSex: true, libido: 5, masturbated: false, usedTadala: false, didClimax: true, timestamp: Date.parse('2026-10-31T12:00:00'), periodEnded: false }
         ];
         setRecords(initialData);
       }
@@ -447,37 +447,40 @@ const App: React.FC = () => {
       '2026-05-17', '2026-05-18', '2026-05-22', '2026-05-23', '2026-05-24',
       '2026-05-31', '2026-06-05', '2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26',
       '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30',
-      '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24', '2026-09-06', '2026-09-10', '2026-09-13', '2026-09-20', '2026-09-26', '2026-10-03'
+      '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24', '2026-09-06', '2026-09-10', '2026-09-13', '2026-09-20', '2026-09-26', '2026-10-03', '2026-10-10', '2026-10-11', '2026-10-17', '2026-10-18', '2026-10-22', '2026-10-31'
     ];
+    const nonSexDates = ['2026-04-23', '2026-05-18', '2026-05-22', '2026-06-18', '2026-08-10', '2026-09-10'];
     
     forcedHistory.forEach(async (d) => {
+      const isNonSex = nonSexDates.includes(d);
       // Clean up duplicates if needed
-      if (d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-10' || d === '2026-08-23' || d === '2026-08-24' || d === '2026-09-06' || d === '2026-09-10' || d === '2026-09-13' || d === '2026-09-20' || d === '2026-09-26' || d === '2026-10-03') {
+      if (!isNonSex) {
          const existing = records.filter(r => r.date === d);
          for (const ex of existing) {
-           if (ex.id !== 'forced-' + d) {
+           if (ex.id !== 'forced-' + d || !ex.hadSex) {
              await deleteDoc(doc(db, 'users', currentUser.uid, 'records', ex.id));
            }
          }
       }
-      const exists = records.some(r => r.date === d && r.id === 'forced-' + d);
-      if (!exists || d === '2026-06-07' || d === '2026-06-21' || d === '2026-06-26' || d === '2026-06-18' || d === '2026-07-04' || d === '2026-07-05' || d === '2026-07-18' || d === '2026-07-19' || d === '2026-07-24' || d === '2026-07-26' || d === '2026-07-30' || d === '2026-08-04' || d === '2026-08-07' || d === '2026-08-08' || d === '2026-08-09' || d === '2026-08-10' || d === '2026-08-23' || d === '2026-08-24' || d === '2026-09-06' || d === '2026-09-13' || d === '2026-09-20' || d === '2026-09-26' || d === '2026-10-03') {
+      const exists = records.some(r => r.date === d && r.id === 'forced-' + d && (!isNonSex ? r.hadSex : true));
+      if (!exists) {
         const id = 'forced-' + d;
         const isApril23 = d === '2026-04-23';
         const isMay18 = d === '2026-05-18';
         const isMay22 = d === '2026-05-22';
         const isJune18 = d === '2026-06-18';
         const isAugust10 = d === '2026-08-10';
+        const isSept10 = d === '2026-09-10';
 
         await setDoc(doc(db, 'users', currentUser.uid, 'records', id), {
           id,
           date: d,
-          hadSex: !isMay18 && !isMay22 && !isJune18 && !isAugust10,
+          hadSex: !isNonSex,
           libido: 5, // Peak performance
           masturbated: false,
           usedTadala: false,
-          didClimax: !isAugust10,
-          periodStarts: isMay18 || isJune18 || isAugust10,
+          didClimax: !isNonSex,
+          periodStarts: isMay18 || isJune18 || isAugust10 || isSept10,
           medsStarts: isMay18 || isJune18 || isAugust10,
           periodEnds: isApril23 || isMay22,
           timestamp: new Date(d + 'T12:00:00').getTime(),
@@ -529,14 +532,22 @@ const App: React.FC = () => {
   // Background Auto-Fix for historical dates (One-time repair when records load)
   useEffect(() => {
     if (currentUser && records.length > 0) {
-      // Clean up mistake for 2026-09-08
-      const badDate = '2026-09-08';
-      const badRecords = records.filter(r => r.date === badDate && r.hadSex);
-      badRecords.forEach(br => {
-        deleteDoc(doc(db, 'users', currentUser.uid, 'records', br.id)).catch(console.error);
+      // Clean up mistake for 2026-09-08 and 2026-10-13 (Tuesday)
+      const badDates = ['2026-09-08', '2026-10-13'];
+      badDates.forEach(badDate => {
+        const badRecords = records.filter(r => r.date === badDate && r.hadSex);
+        badRecords.forEach(br => {
+          deleteDoc(doc(db, 'users', currentUser.uid, 'records', br.id)).catch(console.error);
+        });
       });
 
-      const fixDates = ['2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26', '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30', '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24', '2026-09-06', '2026-09-10', '2026-09-13', '2026-09-20', '2026-09-26', '2026-10-03'];
+      // Also clean up any yesterday record for 2026-10-18 that had hadSex: false
+      const falseYesterdayRecords = records.filter(r => r.date === '2026-10-18' && !r.hadSex);
+      falseYesterdayRecords.forEach(fyr => {
+        deleteDoc(doc(db, 'users', currentUser.uid, 'records', fyr.id)).catch(console.error);
+      });
+
+      const fixDates = ['2026-06-07', '2026-06-18', '2026-06-21', '2026-06-26', '2026-07-04', '2026-07-05', '2026-07-18', '2026-07-19', '2026-07-24', '2026-07-26', '2026-07-30', '2026-08-04', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-23', '2026-08-24', '2026-09-06', '2026-09-10', '2026-09-13', '2026-09-20', '2026-09-26', '2026-10-03', '2026-10-10', '2026-10-11', '2026-10-17', '2026-10-18', '2026-10-22', '2026-10-31'];
       fixDates.forEach(fixDate => {
         const specificRecords = records.filter(r => r.date === fixDate);
         const isJune18 = fixDate === '2026-06-18';
@@ -1317,29 +1328,128 @@ const Dashboard = ({
 
       {/* MAIN CONTENT: Calendar, Chart & History */}
       <div className="lg:col-span-8 space-y-6 lg:space-y-8">
-        {/* CHART SECTION */}
+        {/* CHART & SCALE SECTION */}
         <section id="day-of-week-chart" className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_12px_40px_rgba(0,0,0,0.015)]">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 font-display">Frequência por Dia da Semana</h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={(() => {
-                const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-                const dayStats = records
-                  .filter((r: any) => r.hadSex)
-                  .reduce((acc: any, r: any) => {
-                    const day = new Date(r.date + 'T12:00:00').getDay();
-                    acc[day] = (acc[day] || 0) + 1;
-                    return acc;
-                  }, {});
-                return daysOfWeek.map((day, idx) => ({ name: day, count: dayStats[idx] || 0 }));
-              })()}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} />
-                <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}} />
-                <Bar dataKey="count" fill="#e11d48" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {(() => {
+            const dayNamesFull = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+            const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+            const sexRecords = records.filter((r: any) => r.hadSex);
+            const totalSex = sexRecords.length;
+
+            const dayStats = sexRecords.reduce((acc: any, r: any) => {
+              const day = new Date(r.date + 'T12:00:00').getDay();
+              acc[day] = (acc[day] || 0) + 1;
+              return acc;
+            }, {});
+
+            const chartData = daysOfWeek.map((day, idx) => ({
+              idx,
+              name: day,
+              fullName: dayNamesFull[idx],
+              count: dayStats[idx] || 0,
+              percent: totalSex > 0 ? Math.round(((dayStats[idx] || 0) / totalSex) * 100) : 0
+            }));
+
+            // Find max count and top day
+            const maxCount = Math.max(...chartData.map(d => d.count), 0);
+            const topDay = chartData.find(d => d.count === maxCount && maxCount > 0);
+
+            return (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest font-display">
+                      Frequência por Dia da Semana
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-medium">Histórico acumulado do ano inteiro ({totalSex} registros de sexo)</p>
+                  </div>
+                  {topDay && (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 border border-rose-200/60 text-rose-700 text-xs font-bold shadow-sm">
+                      <Flame className="w-4 h-4 text-rose-600 fill-rose-500" />
+                      <span>Dia mais ativo: <strong className="text-rose-900 font-extrabold">{topDay.fullName}</strong> ({topDay.count}x • {topDay.percent}%)</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-56 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#64748b' }} />
+                      <YAxis axisLine={false} tickLine={false} allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                      <Tooltip 
+                        cursor={{ fill: '#f8fafc' }} 
+                        formatter={(val: any) => [`${val} vezes (${totalSex > 0 ? Math.round((Number(val) / totalSex) * 100) : 0}%)`, 'Frequência']}
+                        labelFormatter={(lbl: any) => {
+                          const item = chartData.find(d => d.name === lbl);
+                          return item ? item.fullName : lbl;
+                        }}
+                        contentStyle={{ borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 8px 24px rgba(0,0,0,0.06)' }} 
+                      />
+                      <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                        {chartData.map((entry, index) => {
+                          const isTop = entry.count === maxCount && maxCount > 0;
+                          return (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={isTop ? '#e11d48' : entry.count > 0 ? '#fb7185' : '#e2e8f0'} 
+                            />
+                          );
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 7-DAY SCALE & BREAKDOWN */}
+                <div className="pt-2">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-display">
+                    Escala Comparativa dos 7 Dias
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+                    {chartData.map(item => {
+                      const isTop = item.count === maxCount && maxCount > 0;
+                      return (
+                        <div 
+                          key={item.name} 
+                          className={`p-3 rounded-2xl border transition-all ${
+                            isTop 
+                              ? 'bg-gradient-to-b from-rose-50 to-red-50/40 border-rose-200 shadow-sm ring-1 ring-rose-300/40' 
+                              : 'bg-slate-50/60 border-slate-100 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className={`text-[11px] font-black uppercase tracking-wider ${isTop ? 'text-rose-900' : 'text-slate-600'}`}>
+                              {item.name}
+                            </span>
+                            {isTop && (
+                              <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500 text-white">
+                                Top 1
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-lg font-black text-slate-900 tracking-tight">
+                            {item.count}
+                            <span className="text-[10px] font-bold text-slate-400 ml-1">vezes</span>
+                          </div>
+                          {/* Mini visual bar scale */}
+                          <div className="w-full bg-slate-200/70 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${isTop ? 'bg-rose-600' : 'bg-rose-400'}`}
+                              style={{ width: `${maxCount > 0 ? (item.count / maxCount) * 100 : 0}%` }}
+                            />
+                          </div>
+                          <div className="text-[10px] font-semibold text-slate-400 mt-1.5 text-right">
+                            {item.percent}%
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </section>
 
         {/* CALENDAR SECTION */}

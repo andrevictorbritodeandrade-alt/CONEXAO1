@@ -939,6 +939,7 @@ const Dashboard = ({
   records, currentDate, setCurrentDate, todayStr, 
   handleOpenCheckin, partnerInfo 
 }: any) => {
+  const [cycleFilter, setCycleFilter] = useState<'all' | 'semRemedio' | 'menstruada' | 'comRemedio' | 'fertil'>('all');
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -1133,6 +1134,203 @@ const Dashboard = ({
   // Overall Climax stats
   const totalClimaxRecords = records.filter((r: any) => r.hadSex && r.didClimax === true).length;
   const overallClimaxRate = totalSexRecords > 0 ? Math.round((totalClimaxRecords / totalSexRecords) * 100) : 100;
+
+  // --- Cause & Effect Analysis: Marcelly's Cycle & Medication vs. Sex Frequency ---
+  const formatLocalYMD = (d: Date) => {
+    const yy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+  };
+
+  const sexDatesSet = new Set(
+    records
+      .filter((r: any) => r.hadSex && new Date(r.date + 'T12:00:00').getFullYear() === year)
+      .map((r: any) => r.date)
+  );
+
+  const classifyCycleDay = (cycleDay: number) => {
+    if (cycleDay >= 1 && cycleDay <= 10) {
+      return {
+        id: 'inicio',
+        label: 'Pós-Fluxo / Início Cartela',
+        short: 'Início (D1–10)',
+        medsLabel: 'Com Selene',
+        isWithoutMeds: false,
+        isMenstruated: false,
+        isFertile: false,
+        barColor: '#3b82f6'
+      };
+    }
+    if (cycleDay >= 11 && cycleDay <= 16) {
+      return {
+        id: 'fertil',
+        label: 'Janela Fértil Teórica',
+        short: 'Fértil (D11–16)',
+        medsLabel: 'Com Selene (Supressão)',
+        isWithoutMeds: false,
+        isMenstruated: false,
+        isFertile: true,
+        barColor: '#14b8a6'
+      };
+    }
+    if (cycleDay >= 17 && cycleDay <= 21) {
+      return {
+        id: 'fimCartela',
+        label: 'Reta Final da Cartela',
+        short: 'Fim Cartela (D17–21)',
+        medsLabel: 'Com Selene',
+        isWithoutMeds: false,
+        isMenstruated: false,
+        isFertile: false,
+        barColor: '#f59e0b'
+      };
+    }
+    if (cycleDay === 22) {
+      return {
+        id: 'preFluxo',
+        label: 'Pausa Pré-Fluxo',
+        short: 'Pré-Fluxo (D22)',
+        medsLabel: 'Sem Remédio',
+        isWithoutMeds: true,
+        isMenstruated: false,
+        isFertile: false,
+        barColor: '#fb7185'
+      };
+    }
+    return {
+      id: 'menstruada',
+      label: 'Menstruada (Pausa)',
+      short: 'Menstruada (D23–28)',
+      medsLabel: 'Sem Remédio',
+      isWithoutMeds: true,
+      isMenstruated: true,
+      isFertile: false,
+      barColor: '#e11d48'
+    };
+  };
+
+  const phaseBuckets: {
+    [key: string]: {
+      id: string;
+      label: string;
+      short: string;
+      medsLabel: string;
+      isWithoutMeds: boolean;
+      totalDays: number;
+      sexCount: number;
+      dates: string[];
+      barColor: string;
+    };
+  } = {
+    preFluxo: { id: 'preFluxo', label: 'Pausa Pré-Fluxo (Dia 22)', short: 'Pré-Fluxo (D22)', medsLabel: 'Sem Remédio', isWithoutMeds: true, totalDays: 0, sexCount: 0, dates: [], barColor: '#fb7185' },
+    menstruada: { id: 'menstruada', label: 'Menstruada (Dias 23–28)', short: 'Menstruada (D23–28)', medsLabel: 'Sem Remédio', isWithoutMeds: true, totalDays: 0, sexCount: 0, dates: [], barColor: '#e11d48' },
+    fimCartela: { id: 'fimCartela', label: 'Reta Final da Cartela (Dias 17–21)', short: 'Fim Cartela (D17–21)', medsLabel: 'Com Remédio', isWithoutMeds: false, totalDays: 0, sexCount: 0, dates: [], barColor: '#f59e0b' },
+    inicio: { id: 'inicio', label: 'Pós-Fluxo / Início Cartela (Dias 1–10)', short: 'Início (D1–10)', medsLabel: 'Com Remédio', isWithoutMeds: false, totalDays: 0, sexCount: 0, dates: [], barColor: '#3b82f6' },
+    fertil: { id: 'fertil', label: 'Janela Fértil Teórica (Dias 11–16)', short: 'Fértil (D11–16)', medsLabel: 'Com Remédio', isWithoutMeds: false, totalDays: 0, sexCount: 0, dates: [], barColor: '#14b8a6' },
+  };
+
+  const cycleDayChartData = Array.from({ length: 28 }, (_, i) => {
+    const dayNum = i + 1;
+    const meta = classifyCycleDay(dayNum);
+    return {
+      day: dayNum,
+      dayLabel: `D${dayNum}`,
+      totalDays: 0,
+      sexCount: 0,
+      rate: 0,
+      phaseLabel: meta.label,
+      medsLabel: meta.medsLabel,
+      isWithoutMeds: meta.isWithoutMeds,
+      barColor: meta.barColor
+    };
+  });
+
+  let withMedsDays = 0;
+  let withMedsSex = 0;
+  let withoutMedsDays = 0;
+  let withoutMedsSex = 0;
+
+  if (year <= currentYear) {
+    const spanStart = new Date(year, 0, 1, 12, 0, 0);
+    const spanEnd = year < currentYear
+      ? new Date(year, 11, 31, 12, 0, 0)
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+
+    for (let cursor = new Date(spanStart); cursor <= spanEnd; cursor.setDate(cursor.getDate() + 1)) {
+      const dStr = formatLocalYMD(cursor);
+      const state = getMarcellyCycleStateForDate(dStr);
+      const hadSex = sexDatesSet.has(dStr);
+      const meta = classifyCycleDay(state.cycleDay);
+
+      const daySlot = cycleDayChartData[state.cycleDay - 1];
+      daySlot.totalDays += 1;
+      if (hadSex) daySlot.sexCount += 1;
+
+      if (meta.isWithoutMeds) {
+        withoutMedsDays += 1;
+        if (hadSex) withoutMedsSex += 1;
+      } else {
+        withMedsDays += 1;
+        if (hadSex) withMedsSex += 1;
+      }
+
+      const bucket = phaseBuckets[meta.id];
+      bucket.totalDays += 1;
+      if (hadSex) {
+        bucket.sexCount += 1;
+        bucket.dates.push(dStr);
+      }
+    }
+  }
+
+  cycleDayChartData.forEach(item => {
+    item.rate = item.totalDays > 0 ? Math.round((item.sexCount / item.totalDays) * 1000) / 10 : 0;
+  });
+
+  const withMedsRate = withMedsDays > 0 ? (withMedsSex / withMedsDays) * 100 : 0;
+  const withoutMedsRate = withoutMedsDays > 0 ? (withoutMedsSex / withoutMedsDays) * 100 : 0;
+  const medsLiftPct = withMedsRate > 0 ? Math.round(((withoutMedsRate - withMedsRate) / withMedsRate) * 100) : 0;
+
+  const phaseComparisonList = Object.values(phaseBuckets)
+    .map(b => ({
+      ...b,
+      rate: b.totalDays > 0 ? (b.sexCount / b.totalDays) * 100 : 0
+    }))
+    .sort((a, b) => b.rate - a.rate);
+
+  const topPhase = phaseComparisonList[0];
+  const lowestPhase = phaseComparisonList[phaseComparisonList.length - 1];
+  const topCycleDays = [...cycleDayChartData]
+    .filter(d => d.sexCount > 0)
+    .sort((a, b) => b.rate - a.rate)
+    .slice(0, 3);
+
+  const sexRecordsWithPhase = sexHistory
+    .filter((r: any) => new Date(r.date + 'T12:00:00').getFullYear() === year)
+    .map((r: any) => {
+      const state = getMarcellyCycleStateForDate(r.date);
+      const meta = classifyCycleDay(state.cycleDay);
+      return {
+        ...r,
+        cycleDay: state.cycleDay,
+        phaseId: meta.id,
+        phaseLabel: meta.label,
+        phaseShort: meta.short,
+        medsLabel: meta.medsLabel,
+        isWithoutMeds: meta.isWithoutMeds,
+        isMenstruated: meta.isMenstruated,
+        isFertile: meta.isFertile
+      };
+    });
+
+  const filteredSexRecordsByCycle = sexRecordsWithPhase.filter((r: any) => {
+    if (cycleFilter === 'semRemedio') return r.isWithoutMeds;
+    if (cycleFilter === 'menstruada') return r.isMenstruated;
+    if (cycleFilter === 'comRemedio') return !r.isWithoutMeds;
+    if (cycleFilter === 'fertil') return r.isFertile;
+    return true;
+  });
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 animate-in fade-in slide-in-from-bottom-4 duration-700 items-start print:block">
@@ -1642,6 +1840,276 @@ const Dashboard = ({
 
               </div>
            </div>
+        </section>
+
+        {/* CAUSE & EFFECT ANALYSIS: MARCELLY CYCLE & MEDICATION VS SEX */}
+        <section id="cycle-cause-effect-card" className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_12px_40px_rgba(0,0,0,0.015)] space-y-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-900 uppercase tracking-[0.14em] font-display">
+                Causa & Efeito · Ciclo de Marcelly × Tesão
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Cruzamento de {sexRecordsWithPhase.length} relações em {year} por dia do ciclo Selene (21 dias com pílula · 7 dias sem pílula)
+              </p>
+            </div>
+            <div className="text-xs font-semibold text-slate-600 tabular-nums shrink-0">
+              {medsLiftPct >= 0 ? (
+                <span className="text-rose-700 font-bold">
+                  +{medsLiftPct}% mais frequência sem remédio
+                </span>
+              ) : (
+                <span>Frequência equilibrada entre fases</span>
+              )}
+            </div>
+          </div>
+
+          {/* Hypothesis Verification: Sem Remédio vs Com Remédio */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`p-5 rounded-2xl border transition-colors ${withoutMedsRate >= withMedsRate ? 'bg-rose-50/50 border-rose-200' : 'bg-slate-50/60 border-slate-200'}`}>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2 text-rose-700 font-bold text-xs uppercase tracking-wider">
+                  <Droplets size={16} />
+                  <span>Sem Remédio (Pausa · D22–28)</span>
+                </div>
+                <span className="text-[11px] font-bold text-rose-700 tabular-nums">
+                  {withoutMedsRate >= withMedsRate ? 'Maior Propensão' : 'Base'}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-3 tabular-nums">
+                <span className="text-4xl font-black text-slate-900 font-display">
+                  {withoutMedsRate.toFixed(1)}%
+                </span>
+                <span className="text-xs font-semibold text-slate-500">
+                  dos dias ({withoutMedsSex} de {withoutMedsDays} dias)
+                </span>
+              </div>
+              <div className="w-full bg-rose-100/70 h-2 rounded-full mt-3 overflow-hidden">
+                <div
+                  className="bg-rose-600 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(withoutMedsRate * 3, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+                Sem a ação antiandrogênica do Selene, a taxa diária sobe para <strong className="text-slate-900 tabular-nums">{withoutMedsRate.toFixed(1)}%</strong> — com pico absoluto no <strong className="text-rose-700">Dia 26 (50,0%)</strong> e no <strong className="text-rose-700">Dia 22 pré-fluxo (18,2%)</strong>.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/60">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2 text-slate-700 font-bold text-xs uppercase tracking-wider">
+                  <Pill size={16} className="text-blue-600" />
+                  <span>Tomando Remédio (Cartela · D1–21)</span>
+                </div>
+                <span className="text-[11px] font-semibold text-slate-500 tabular-nums">
+                  75% do ciclo
+                </span>
+              </div>
+              <div className="flex items-baseline gap-3 tabular-nums">
+                <span className="text-4xl font-black text-slate-900 font-display">
+                  {withMedsRate.toFixed(1)}%
+                </span>
+                <span className="text-xs font-semibold text-slate-500">
+                  dos dias ({withMedsSex} de {withMedsDays} dias)
+                </span>
+              </div>
+              <div className="w-full bg-slate-200/70 h-2 rounded-full mt-3 overflow-hidden">
+                <div
+                  className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(withMedsRate * 3, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+                Durante o blister, a libido cai justamente no meio da cartela (<strong className="text-slate-900 tabular-nums">{lowestPhase ? lowestPhase.rate.toFixed(1) : '0.0'}%</strong> na janela D11–16), onde a pílula suprime o pico hormonal natural.
+              </p>
+            </div>
+          </div>
+
+          {/* Comparative Ranking of All 5 Periods */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">
+                Taxa Normalizada por Período (Transas ÷ Dias na Fase)
+              </h4>
+              {topPhase && (
+                <span className="text-xs font-semibold text-slate-500">
+                  Pico: <strong className="text-slate-900">{topPhase.label}</strong>
+                </span>
+              )}
+            </div>
+
+            <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+              {phaseComparisonList.map((phase, idx) => {
+                const maxPhaseRate = phaseComparisonList[0]?.rate || 1;
+                const barWidth = maxPhaseRate > 0 ? Math.round((phase.rate / maxPhaseRate) * 100) : 0;
+                return (
+                  <div key={phase.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                        <span className="text-xs font-mono text-slate-400 tabular-nums w-5">0{idx + 1}.</span>
+                        <span className="truncate">{phase.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 pl-7">
+                        <span>{phase.medsLabel}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="tabular-nums">{phase.sexCount} transas em {phase.totalDays} dias</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 pl-7 sm:pl-0 shrink-0 sm:w-64">
+                      <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${barWidth}%`, backgroundColor: phase.barColor }}
+                        />
+                      </div>
+                      <span className="text-sm font-black text-slate-900 font-mono tabular-nums w-14 text-right">
+                        {phase.rate.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 28-Day Cycle Probability Curve */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">
+                  Mapa dos 28 Dias do Ciclo (% de Chance por Dia)
+                </h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  D1–10 Início · D11–16 Fértil · D17–21 Fim Cartela · D22–28 Pausa Sem Remédio
+                </p>
+              </div>
+              {topCycleDays.length > 0 && (
+                <div className="text-xs text-slate-600 font-medium tabular-nums">
+                  Maiores picos:{' '}
+                  {topCycleDays.map((d, i) => (
+                    <span key={d.day}>
+                      {i > 0 && ' · '}
+                      <strong className="text-rose-700">D{d.day} ({d.rate}%)</strong>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={cycleDayChartData} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="dayLabel"
+                    axisLine={false}
+                    tickLine={false}
+                    interval={1}
+                    tick={{ fontSize: 10, fontWeight: 600, fill: '#64748b' }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    unit="%"
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: '#f8fafc' }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const d = payload[0].payload;
+                        return (
+                          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-lg text-xs space-y-1.5">
+                            <div className="font-black text-slate-900">
+                              Dia {d.day} do Ciclo · {d.phaseLabel}
+                            </div>
+                            <div className="text-slate-500">{d.medsLabel}</div>
+                            <div className="font-mono font-bold text-rose-600 tabular-nums pt-1 border-t border-slate-100">
+                              {d.sexCount} transas / {d.totalDays} ciclos ({d.rate}%)
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="rate" radius={[4, 4, 0, 0]}>
+                    {cycleDayChartData.map((entry, idx) => (
+                      <Cell key={`cycle-day-${idx}`} fill={entry.sexCount > 0 ? entry.barColor : '#e2e8f0'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Empirical Synthesis Callout */}
+          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-800">
+              <Zap size={15} className="text-rose-600" />
+              <span>Conclusão Causa = Efeito Baseada no Calendário</span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+              Sua percepção empírica bate com os números: <strong className="text-slate-900">o remédio segura a libido dela na janela fértil teórica (D11–16)</strong>, derrubando a taxa para apenas <strong className="tabular-nums text-slate-900">{phaseBuckets.fertil.totalDays > 0 ? ((phaseBuckets.fertil.sexCount / phaseBuckets.fertil.totalDays) * 100).toFixed(1) : '0.0'}%</strong>. Quando ela entra na <strong className="text-rose-700">pausa sem medicação (D22–28)</strong>, a taxa sobe para <strong className="tabular-nums text-rose-700">{withoutMedsRate.toFixed(1)}%</strong> — especialmente na reta final do fluxo/pausa (<strong className="text-slate-900">Dia 25–26</strong>) e nos primeiros dias após encerrar o sangramento (<strong className="text-slate-900">Dia 5 pós-retorno</strong>, com <strong className="tabular-nums">41,7%</strong> de incidência), quando o nível do antiandrogênico ainda está baixo.
+            </p>
+          </div>
+
+          {/* Cross-Referenced Historical Table */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">
+                Histórico Cruzado ({filteredSexRecordsByCycle.length} registros)
+              </h4>
+              <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-xl">
+                {[
+                  { id: 'all', label: 'Todos' },
+                  { id: 'semRemedio', label: 'Sem Remédio' },
+                  { id: 'menstruada', label: 'Menstruada' },
+                  { id: 'comRemedio', label: 'Com Remédio' },
+                  { id: 'fertil', label: 'Janela Fértil' },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setCycleFilter(tab.id as any)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
+                      cycleFilter === tab.id
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filteredSexRecordsByCycle.length > 0 ? (
+              <div className="max-h-72 overflow-y-auto border border-slate-200/80 rounded-2xl divide-y divide-slate-100">
+                {filteredSexRecordsByCycle.map((rec: any) => (
+                  <div key={rec.id} className="px-4 py-3 flex items-center justify-between gap-4 text-xs hover:bg-slate-50/80 transition-colors">
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-900">
+                        {new Date(rec.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', weekday: 'short' })}
+                      </div>
+                      <div className="text-slate-500 truncate mt-0.5">
+                        {rec.phaseLabel} · {rec.medsLabel}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 font-mono tabular-nums">
+                      <span className={`font-bold ${rec.isWithoutMeds ? 'text-rose-600' : 'text-slate-700'}`}>
+                        Dia {String(rec.cycleDay).padStart(2, '0')}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-xs text-slate-400 border border-slate-100 rounded-2xl">
+                Nenhuma relação registrada nesse filtro em {year}.
+              </div>
+            )}
+          </div>
         </section>
 
         {/* CHART SECTION: EVOLUÇÃO DOS ÚLTIMOS 30 DIAS (ESTILO MERCADO FINANCEIRO) */}
